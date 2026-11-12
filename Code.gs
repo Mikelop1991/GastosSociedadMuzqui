@@ -54,10 +54,14 @@ function doPost(e) {
     const p = JSON.parse(e.postData.contents);
     comprobarClave_(p.k);
     const lock = LockService.getScriptLock();
-    lock.waitLock(20000);
+    if (!lock.tryLock(20000)) throw new Error('OCUPADO');
     try {
-      const hechos = [];
-      (p.ops || [p]).forEach(op => hechos.push(aplicar_(op)));
+      // cada apunte por separado: si uno falla, los demás se guardan igual y la app sabe cuál no entró
+      const hechos = (p.ops || [p]).map(op => {
+        try { return Object.assign({ ok: true }, aplicar_(op)); }
+        catch (err) { return { ok: false, accion: op && op.accion, error: String(err.message || err) }; }
+      });
+      SpreadsheetApp.flush();
       return { ok: true, hechos: hechos };
     } finally {
       lock.releaseLock();
@@ -221,18 +225,38 @@ function excelDelAnio_(anio, movs) {
   const r = UrlFetchApp.fetch(URL_PLANTILLA, { muteHttpExceptions: true });
   if (r.getResponseCode() !== 200) throw new Error('No encuentro la plantilla en ' + URL_PLANTILLA);
   const partes = Utilities.unzip(r.getBlob().setContentType('application/zip'));
+  // las hojas se buscan por su nombre (Marzo … Febrero, FIESTAS): da igual el orden si alguien toca la plantilla
+  const texto = nombre => { const b = partes.filter(x => x.getName() === nombre)[0]; return b ? b.getDataAsString('UTF-8') : ''; };
+  const rutas = rutasHojas_(texto('xl/workbook.xml'), texto('xl/_rels/workbook.xml.rels'));
+  const queHoja = {};
+  HOJAS_MES.forEach((h, i) => { if (rutas[h]) queHoja[rutas[h]] = i; });
+  if (Object.keys(queHoja).length < 12 || !rutas.FIESTAS) throw new Error('La plantilla no tiene las hojas Marzo … Febrero y FIESTAS');
   const salida = partes.map(b => {
-    const m = b.getName().match(/^xl\/worksheets\/sheet(\d+)\.xml$/);
-    const n = m ? +m[1] : 0;
-    if (n === 14) return Utilities.newBlob(hojaFiestasXml(b.getDataAsString('UTF-8'), lineasFiestas_(movs, anio)), 'application/xml', b.getName());
-    if (n < 2 || n > 13) return b;                       // sheet2 = Marzo … sheet13 = Febrero
-    const mes = (n - 2 + 2) % 12 + 1, y = mes >= 3 ? anio : anio + 1;
+    if (b.getName() === rutas.FIESTAS) return Utilities.newBlob(hojaFiestasXml(b.getDataAsString('UTF-8'), lineasFiestas_(movs, anio)), 'application/xml', b.getName());
+    const i = queHoja[b.getName()];
+    if (i === undefined) return b;
+    const mes = (i + 2) % 12 + 1, y = mes >= 3 ? anio : anio + 1;    // i = 0 → marzo … i = 11 → febrero
     const ym = y + '-' + ('0' + mes).slice(-2);
     const xml = rellenarMesXl_(b.getDataAsString('UTF-8'), movs.filter(x => x.fecha.slice(0, 7) === ym && x.concepto.indexOf('FIESTAS') !== 0));
     return Utilities.newBlob(xml, 'application/xml', b.getName());
   });
   return Utilities.zip(salida, 'Gastos_Muzqui_' + anio + '-' + (anio + 1) + '.xlsx')
     .setContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+}
+
+const HOJAS_MES = ['MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE', 'ENERO', 'FEBRERO'];
+/** nombre de hoja (en mayúsculas) → archivo dentro del .xlsx */
+function rutasHojas_(wb, rels) {
+  const dest = {}, out = {};
+  (rels.match(/<Relationship\b[^>]*>/g) || []).forEach(r => {
+    const id = (r.match(/\bId="([^"]+)"/) || [])[1], t = (r.match(/\bTarget="([^"]+)"/) || [])[1];
+    if (id && t) dest[id] = t.charAt(0) === '/' ? t.slice(1) : 'xl/' + t;
+  });
+  (wb.match(/<sheet\b[^>]*>/g) || []).forEach(h => {
+    const n = (h.match(/\bname="([^"]+)"/) || [])[1], id = (h.match(/\br:id="([^"]+)"/) || [])[1];
+    if (n && dest[id]) out[n.trim().toUpperCase()] = dest[id];
+  });
+  return out;
 }
 
 function filasXl_(movs) {
