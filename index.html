@@ -383,6 +383,38 @@ function leerImporte(txt) {
   const v = Number((ent || '0') + (dec ? '.' + dec : ''));
   return isFinite(v) ? Math.round((neg ? -v : v) * 100) / 100 : NaN;
 }
+/* ---- notas sin repetidos: «Ikai 3.6 internet», «Ikay» e «Ikai» son lo mismo ---- */
+const sinFechas = t => String(t || '').replace(/\b\d{1,2}\s*[.\/-]\s*\d{1,2}(?:\s*[.\/-]\s*\d{2,4})?\b\.?/g, ' ').replace(/\s+/g, ' ').trim();
+const claveNota = t => sinFechas(t).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  .replace(/\b(pago|fra|factura|recibo|de|del|la|el)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+function distancia(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return 9;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+/* las notas ya usadas, una por idea (la forma más repetida) */
+function notasUnicas(lista) {
+  const m = new Map();
+  lista.map(t => String(t || '').trim()).filter(Boolean).forEach(t => {
+    const k = claveNota(t); if (!k) return;
+    const o = m.get(k) || { n: 0, formas: new Map() }; o.n++; o.formas.set(t, (o.formas.get(t) || 0) + 1); m.set(k, o);
+  });
+  return [...m.entries()].map(([k, o]) => ({ k, t: [...o.formas.entries()].sort((a, b) => b[1] - a[1])[0][0], n: o.n })).sort((a, b) => b.n - a.n);
+}
+/* lo escrito se apunta como la nota que ya existía si es lo mismo o casi (una errata) */
+function unificar(texto, lista) {
+  const t = capital(sinFechas(texto)); const k = claveNota(t);
+  if (!k) return t;
+  const us = notasUnicas(lista);
+  const igual = us.find(u => u.k === k); if (igual) return igual.t;
+  const casi = us.filter(u => k.length >= 4 && u.k.length >= 4 && distancia(u.k, k) <= (k.length >= 8 ? 2 : 1)).sort((a, b) => b.n - a.n)[0];
+  return casi ? casi.t : t;
+}
 const paraEscribir = v => eur(v).replace(/\./g, '');
 const capital = s => { s = String(s || '').trim().replace(/\s+/g, ' '); return s ? s[0].toUpperCase() + s.slice(1) : ''; };
 
@@ -507,9 +539,10 @@ function faltan(ym) {
   return out;
 }
 function quienes() {
-  const n = new Map();
-  S.movs.filter(g => g.sobre && g.nota && !esFiesta(g)).forEach(g => { const k = capital(g.nota); const s = n.get(k) || new Set(); s.add(g.sobre); n.set(k, s); });
-  return [...n.entries()].sort((a, b) => b[1].size - a[1].size).map(x => x[0]);
+  // un nombre por sobre, sin repetidos ni erratas
+  const porSobre = new Map();
+  S.movs.forEach(g => { if (g.sobre && g.nota && C[g.concepto]?.sobre && !porSobre.has(g.sobre)) porSobre.set(g.sobre, capital(g.nota)); });
+  return notasUnicas([...porSobre.values()]).map(u => u.t);
 }
 
 /* ====================== interfaz ====================== */
@@ -709,7 +742,8 @@ function formFiestas(l, anio) {
   const hoy = hoyISO(), fecha = l ? l.fecha : (+hoy.slice(0, 4) === anio ? hoy : `${anio}-05-15`);
   // conceptos de otros años que este año todavía no están: se tocan y se rellena el nombre
   const ya = new Set(lineasFiestas(anio).map(x => x.concepto.toLowerCase()));
-  const guia = l ? [] : [...new Set(S.movs.filter(g => esFiesta(g) && +g.fecha.slice(0, 4) !== anio).map(g => g.nota))].filter(n => !ya.has(n.toLowerCase())).sort((a, b) => a.localeCompare(b, 'es'));
+  const yaK = new Set([...ya].map(claveNota));
+  const guia = l ? [] : notasUnicas(S.movs.filter(g => esFiesta(g) && +g.fecha.slice(0, 4) !== anio).map(g => g.nota)).filter(u => !yaK.has(u.k)).map(u => u.t).sort((a, b) => a.localeCompare(b, 'es'));
   return `<form class="fform" id="fForm" autocomplete="off">
     <label>Concepto<input type="text" id="fc" list="fNombres" value="${esc(l ? l.concepto : '')}" placeholder="Por ejemplo: carnicería, hielos, DJ…" maxlength="80"></label>
     ${guia.length ? `<div><span class="small muted">De otros años:</span><div class="guia">${guia.map(n => `<button type="button" class="chip" data-guia="${esc(n)}">${esc(n)}</button>`).join('')}</div></div>` : ''}
@@ -731,7 +765,7 @@ function enlazarFormFiestas(root, l, alAcabar) {
   root.querySelectorAll('[data-guia]').forEach(b => b.onclick = () => { root.querySelector('#fc').value = b.dataset.guia; root.querySelector('#fg').focus(); });
   root.querySelector('#fForm').onsubmit = ev => {
     ev.preventDefault();
-    const concepto = capital(root.querySelector('#fc').value);
+    const concepto = unificar(root.querySelector('#fc').value, S.movs.filter(g => esFiesta(g) && (!l || g.sobre !== l.id)).map(g => g.nota));
     const g = leerImporte(root.querySelector('#fg').value) || 0, i = leerImporte(fi.value) || 0;
     const mal = root.querySelector('#fMal');
     if (!concepto) { mal.textContent = 'Escribe qué es (por ejemplo: carnicería).'; root.querySelector('#fc').focus(); return; }
@@ -741,7 +775,8 @@ function enlazarFormFiestas(root, l, alAcabar) {
     const fecha = root.querySelector('#ff').value || hoyISO();
     guardarFiesta(l, { concepto, gasto: g, ingreso: i, ayto: fa.checked, fecha });
     S.fAnio = +fecha.slice(0, 4);
-    toast(`${l ? 'Corregido' : 'Añadido'}: ${concepto}`);
+    const escrito = capital(root.querySelector('#fc').value);
+    toast(`${l ? 'Corregido' : 'Añadido'}: ${concepto}${escrito !== concepto ? ` (escrito «${escrito}»)` : ''}`);
     alAcabar();
   };
   const b = root.querySelector('#fBorra');
@@ -755,7 +790,7 @@ function hojaFiesta(l, y) {
   const sh = montarHoja();
   sh.innerHTML = `<div class="grab"></div><div class="sheet-head"><h2 id="shTit">${l ? 'Corregir' : 'Añadir'} · fiestas ${y}</h2><button type="button" class="x" aria-label="Cerrar">×</button></div>
     <div class="tarjeta">${formFiestas(l, y)}</div>
-    <datalist id="fNombres">${[...new Set(S.movs.filter(esFiesta).map(g => g.nota))].sort().map(n => `<option value="${esc(n)}">`).join('')}</datalist>`;
+    <datalist id="fNombres">${notasUnicas(S.movs.filter(esFiesta).map(g => g.nota)).map(u => u.t).sort().map(n => `<option value="${esc(n)}">`).join('')}</datalist>`;
   sh.querySelector('.x').onclick = cerrarHoja;
   enlazarFormFiestas(sh, l, () => { cerrarHoja(); render(); });
   if (!l) setTimeout(() => sh.querySelector('#fc')?.focus(), 250);
@@ -874,7 +909,7 @@ function abrirSobre(o) {
     if (!bien) { toast('Revisa los importes'); return; }
     if (!PARTES.some(p => vals[p])) { toast('Pon al menos un importe'); sh.querySelector('[data-p]').focus(); return; }
     const gid = ed ? o.editar : nuevoId('S');
-    const quien = capital(st.quien);
+    const quien = unificar(st.quien, S.movs.filter(g => g.sobre && C[g.concepto]?.sobre && g.sobre !== gid).map(g => capital(g.nota)));
     const ops = [];
     PARTES.forEach(p => {
       const antes = ed && ed.find(g => g.concepto === p);
@@ -886,7 +921,7 @@ function abrirSobre(o) {
     encolar(ops);
     S.nuevo = gid; S.mes = mesDe(st.fecha);
     cerrarHoja();
-    toast(`${ed ? 'Corregido' : 'Apuntado'}: sobre${quien ? ' de ' + quien : ''}, ${eur(PARTES.reduce((a, p) => a + vals[p], 0))} €`);
+    toast(`${ed ? 'Corregido' : 'Apuntado'}: sobre${quien ? ' de ' + quien : ''}, ${eur(PARTES.reduce((a, p) => a + vals[p], 0))} €${quien && capital(st.quien) !== quien ? ` (escrito «${capital(st.quien)}»)` : ''}`);
     render();
   };
   pinta();
@@ -903,7 +938,7 @@ function abrirHoja(o) {
     const c = C[st.concepto];
     const previos = S.movs.filter(g => g.concepto === st.concepto && (!ed || g.id !== ed.id)).sort((a, b) => b.fecha.localeCompare(a.fecha));
     const importes = [...new Set(previos.map(g => g.importe))].slice(0, 4);
-    const notas = [...new Set(previos.map(g => g.nota.trim()).filter(Boolean))].slice(0, 6);
+    const notas = notasUnicas(previos.map(g => g.nota)).slice(0, 8).map(u => u.t);
     sh.innerHTML = `<div class="grab"></div>
       <div class="sheet-head"><span class="${c.t === 'g' ? 'sale' : 'entra'}" style="display:flex">${icono(st.concepto)}</span><h2 id="shTit">${ed ? 'Corregir · ' : ''}${esc(c.n)} <span class="pill ${c.t === 'g' ? 's' : 'e'} small" style="font-family:var(--f-ui);font-size:.7rem;padding:2px 8px;border-radius:999px;vertical-align:3px">${c.t === 'g' ? 'SALE' : 'ENTRA'}</span></h2><button type="button" class="x" aria-label="Cerrar">×</button></div>
       <div class="tarjeta">
@@ -947,11 +982,13 @@ function abrirHoja(o) {
   const guardar = () => {
     const v = leerImporte(sh.querySelector('#fImp').value);
     if (v === null || isNaN(v) || v <= 0) { toast('Falta el importe'); sh.querySelector('#fImp').focus(); return; }
-    const mov = { id: ed ? ed.id : nuevoId('M'), fecha: st.fecha, concepto: st.concepto, importe: v, nota: capital(sh.querySelector('#fNota').value), sobre: '' };
+    const mov = { id: ed ? ed.id : nuevoId('M'), fecha: st.fecha, concepto: st.concepto, importe: v, sobre: '',
+      nota: unificar(sh.querySelector('#fNota').value, S.movs.filter(g => g.concepto === st.concepto && (!ed || g.id !== ed.id)).map(g => g.nota)) };
     encolar([{ accion: ed ? 'editar' : 'crear', mov }]);
     S.nuevo = mov.id; S.mes = mesDe(mov.fecha);
     cerrarHoja();
-    toast(`${ed ? 'Corregido' : 'Apuntado'}: ${C[mov.concepto].n}, ${eur(v)} €`);
+    const escrito = capital(sinFechas(sh.querySelector('#fNota')?.value || ''));
+    toast(`${ed ? 'Corregido' : 'Apuntado'}: ${C[mov.concepto].n}, ${eur(v)} €${mov.nota && escrito && mov.nota !== escrito ? ` · como «${mov.nota}»` : ''}`);
     render();
   };
   pinta();
