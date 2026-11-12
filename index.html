@@ -23,6 +23,7 @@
   --wine: #cf3e4f; --wine-soft: #fde7e9;      /* sale dinero */
   --olive: #2e8b4b; --olive-soft: #e1f4e5;    /* entra dinero: el verde del escudo */
   --ember: #ee7d2e; --ember-soft: #fff0e2;    /* leña, avisos */
+  --ember-deep: #c2560f;                      /* naranja con texto blanco encima (se lee bien) */
   --act: #2c6fbb; --act-ink: #ffffff;         /* botones: el azul del escudo */
   --gold: #c9962e;
   --shadow: 0 1px 0 rgba(120,80,20,.05), 0 8px 20px -12px rgba(120,80,20,.35);
@@ -68,7 +69,7 @@ h3 { font-family: var(--f-num); font-size: 1.08rem; margin: 0; font-weight: 700;
 .mesnav button { width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(58,42,28,.3); background: transparent; color: inherit; font-size: 1.3rem; line-height: 1; }
 .mesnav button:disabled { opacity: .3; }
 .mesnav .mes { font-family: var(--f-num); font-size: 1.15rem; font-weight: 700; min-width: 9.5em; }
-.res-lab { font-size: .8rem; letter-spacing: .1em; text-transform: uppercase; opacity: .8; margin-top: 4px; }
+.res-lab { font-size: .86rem; letter-spacing: .1em; text-transform: uppercase; opacity: .8; margin-top: 4px; }
 .total { font-family: var(--f-num); font-size: clamp(2.4rem, 10vw, 3.6rem); font-weight: 800; letter-spacing: -.02em; line-height: 1.05; }
 .total small { font-size: .45em; font-weight: 700; margin-left: .1em; }
 .vs { font-size: .92rem; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
@@ -91,7 +92,7 @@ main { max-width: 1040px; margin: 0 auto; padding: 18px 16px 30px; }
 .sobrebtn::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 46px; background: rgba(255,255,255,.16);
   clip-path: polygon(0 0, 100% 0, 50% 100%); }
 .sobrebtn .t { position: relative; font-family: var(--f-num); font-size: 1.45rem; font-weight: 800; display: flex; align-items: center; gap: 10px; }
-.sobrebtn .t .mas { margin-left: auto; width: 46px; height: 46px; border-radius: 50%; background: var(--ember); color: #fff; display: grid; place-items: center; font-size: 1.7rem; font-weight: 400; }
+.sobrebtn .t .mas { margin-left: auto; width: 46px; height: 46px; border-radius: 50%; background: var(--ember-deep); color: #fff; display: grid; place-items: center; font-size: 1.7rem; font-weight: 400; }
 .sobrebtn .trio { position: relative; display: flex; gap: 8px; flex-wrap: wrap; }
 .sobrebtn .trio span { background: rgba(255,255,255,.35); border-radius: 999px; padding: 4px 12px; font-weight: 700; font-size: .9rem; display: inline-flex; gap: 6px; align-items: center; }
 .sobrebtn .trio svg { width: 18px; height: 18px; }
@@ -106,7 +107,7 @@ main { max-width: 1040px; margin: 0 auto; padding: 18px 16px 30px; }
 .cat svg { width: 32px; height: 32px; }
 .cat.g svg { color: var(--wine); } .cat.i svg { color: var(--olive); }
 .cat span { font-size: .86rem; font-weight: 700; line-height: 1.15; }
-.cat em { font-style: normal; font-size: .78rem; color: var(--ink-2); font-family: var(--f-num); }
+.cat em { font-style: normal; font-size: .86rem; color: var(--ink-2); font-family: var(--f-num); }
 .cat.has.g em { color: var(--wine); font-weight: 700; } .cat.has.i em { color: var(--olive); font-weight: 700; }
 
 /* recibos que faltan */
@@ -132,11 +133,11 @@ main { max-width: 1040px; margin: 0 auto; padding: 18px 16px 30px; }
 .mov:hover { background: var(--paper); }
 .mov .d { text-align: center; line-height: 1.05; color: var(--ink-2); }
 .mov .d b { display: block; font-family: var(--f-num); font-size: 1.25rem; color: var(--ink); }
-.mov .d span { font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; }
+.mov .d span { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
 .mov .c { min-width: 0; }
 .mov .c b { display: flex; align-items: center; gap: 6px; font-weight: 700; }
 .mov .c b svg { width: 18px; height: 18px; flex: none; }
-.mov .c small { display: block; font-size: .84rem; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mov .c small { display: block; font-size: .9rem; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mov .i { font-family: var(--f-num); font-weight: 700; text-align: right; white-space: nowrap; font-size: 1.02rem; }
 .mov .lapiz { width: 20px; height: 20px; color: var(--act); justify-self: end; }
 .cu-hint { padding: 8px 14px; font-size: .84rem; color: var(--ink-2); border-bottom: 1px solid var(--rule); background: var(--paper); display: flex; gap: 6px; align-items: center; }
@@ -189,7 +190,7 @@ main { max-width: 1040px; margin: 0 auto; padding: 18px 16px 30px; }
 .mcol .par { display: flex; gap: 2px; align-items: end; height: 100%; width: 100%; justify-content: center; }
 .mcol .par i { width: 46%; max-width: 15px; border-radius: 3px 3px 0 0; min-height: 2px; }
 .mcol .par i.e { background: var(--olive); } .mcol .par i.s { background: var(--wine); }
-.mcol span { font-size: .7rem; color: var(--ink-2); }
+.mcol span { font-size: .76rem; color: var(--ink-2); }
 .mcol.sel span { color: var(--ink); font-weight: 700; text-decoration: underline; text-decoration-color: var(--ember); text-decoration-thickness: 2px; }
 .ley { display: flex; gap: 14px; font-size: .84rem; color: var(--ink-2); }
 .ley i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
@@ -197,7 +198,7 @@ main { max-width: 1040px; margin: 0 auto; padding: 18px 16px 30px; }
 @media (min-width: 640px) { .cifras { grid-template-columns: repeat(4, 1fr); } }
 .cifra { border-left: 3px solid var(--gold); padding: 2px 0 2px 10px; }
 .cifra b { display: block; font-family: var(--f-num); font-size: 1.3rem; font-weight: 800; }
-.cifra span { font-size: .82rem; color: var(--ink-2); }
+.cifra span { font-size: .9rem; color: var(--ink-2); }
 
 /* ---------- hojas para apuntar ---------- */
 .sheet-bg { position: fixed; inset: 0; background: rgba(30, 18, 10, .5); z-index: 40; }
@@ -228,7 +229,7 @@ input[type=text], input[type=date], input[type=url] { border: 1px solid var(--ru
 .parte:last-child { border-bottom: 0; }
 .parte svg { width: 30px; height: 30px; }
 .parte label { font-weight: 700; font-size: 1.05rem; }
-.parte label small { display: block; font-weight: 400; font-size: .78rem; color: var(--ink-2); }
+.parte label small { display: block; font-weight: 400; font-size: .86rem; color: var(--ink-2); }
 .parte .imp { display: flex; align-items: baseline; gap: 4px; border-bottom: 2px solid var(--rule); }
 .parte .imp:focus-within { border-color: var(--ember); }
 .parte input { border: 0; background: transparent; font-family: var(--f-num); font-size: 1.6rem; font-weight: 800; width: 100%; text-align: right; outline: none; padding: 4px 0; }
@@ -251,7 +252,7 @@ nav.tabs .plus svg { width: 24px; height: 24px; color: #fff !important; }
 @media (min-width: 900px) { body { padding-bottom: calc(var(--tab-h) + 40px); } nav.tabs { max-width: 560px; margin: 0 auto 14px; border: 1px solid var(--rule); border-radius: 16px; box-shadow: var(--shadow); } }
 .toast { position: fixed; left: 50%; translate: -50% 0; bottom: calc(var(--tab-h) + 16px + env(safe-area-inset-bottom)); z-index: 60;
   background: var(--act); color: var(--act-ink); padding: 12px 18px; border-radius: 10px; font-weight: 700; max-width: calc(100% - 32px); box-shadow: var(--shadow); }
-.demo { background: var(--ember); color: #fff; text-align: center; font-size: .84rem; padding: 6px 12px; font-weight: 700; }
+.demo { background: var(--ember-deep); color: #fff; text-align: center; font-size: .84rem; padding: 6px 12px; font-weight: 700; }
 .sello { display: inline-block; border: 2px solid var(--olive); color: var(--olive); border-radius: 6px; padding: 1px 8px; font-weight: 800; font-size: .8rem; transform: rotate(-4deg); }
 @media (prefers-reduced-motion: no-preference) { .sheet { animation: up .22s cubic-bezier(.2,.8,.2,1); } @keyframes up { from { opacity: .4; transform: translateY(40px); } } }
 </style>
@@ -446,24 +447,47 @@ async function api(method, body) {
   if (!j.ok) throw new Error(j.error || 'Error');
   return j;
 }
-let sincronizando = false;
-async function sincronizar(mostrar) {
-  if (S.demo || !S.cfg || sincronizando) { pintarEstado(); return; }
-  sincronizando = true; pintarEstado('sync');
-  try {
-    if (S.pend.length) {
-      try { await api('POST', { ops: S.pend }); }
-      catch (e) {
-        const m = String(e.message);
-        if (/CLAVE|DIRECCION|NOJSON|fetch|network|Load failed/i.test(m)) throw e;
-        toast('Google no ha aceptado el último cambio: ' + m);
+/* fallos que se arreglan solos al reintentar (sin internet, Google ocupado…): lo pendiente se queda en la cola */
+const esPasajero = e => /CLAVE|DIRECCION|NOJSON|OCUPADO|fetch|network|Load failed|timeout|tiempo de espera|lock|Servic/i.test(String(e && e.message || e));
+let sincronizando = false, repetir = false;
+async function enviarPendientes() {
+  while (S.pend.length) {
+    const lote = S.pend.slice();
+    let hechos;
+    try { hechos = (await api('POST', { ops: lote })).hechos || []; }
+    catch (e) {
+      if (esPasajero(e)) throw e;
+      // un script antiguo rechaza el lote entero: se manda de uno en uno para saber cuál falla
+      hechos = [];
+      for (const op of lote) {
+        try { hechos.push(((await api('POST', { ops: [op] })).hechos || [])[0] || { ok: true }); }
+        catch (e2) { if (esPasajero(e2)) throw e2; hechos.push({ ok: false, error: String(e2.message || e2) }); }
       }
-      S.pend = []; store.set('pend', S.pend);
     }
+    // sale de la cola solo lo enviado en este lote: lo apuntado mientras tanto se queda para la siguiente vuelta
+    S.pend = S.pend.filter(op => !lote.includes(op)); store.set('pend', S.pend);
+    const malos = hechos.filter(h => h && h.ok === false);
+    if (malos.length) avisarRechazo(malos);
+  }
+}
+function avisarRechazo(malos) {
+  const hora = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const txt = (malos.length === 1 ? 'Google no ha aceptado un cambio' : `Google no ha aceptado ${malos.length} cambios`) + ': ' + malos.map(h => h.error).join(' · ');
+  S.error = [hora, txt]; store.set('error', S.error); S.rechazo = true;
+  toast(txt);
+}
+async function sincronizar(mostrar) {
+  if (S.demo || !S.cfg) { pintarEstado(); return; }
+  if (sincronizando) { repetir = true; return; }
+  sincronizando = true; repetir = false; S.rechazo = false; pintarEstado('sync');
+  try {
+    await enviarPendientes();
     const j = await api('GET');
     S.movs = j.movimientos.map(deFila);
+    S.pend.forEach(aplicarLocal);   // lo apuntado mientras se descargaban los datos
     store.set('cache', { movimientos: j.movimientos, hora: j.hora });
-    S.ultimaSync = new Date(); S.online = true; S.error = null; store.set('error', null);
+    S.ultimaSync = new Date(); S.online = true;
+    if (!S.rechazo) { S.error = null; store.set('error', null); }   // el aviso de un rechazo se queda en Ajustes
     if (mostrar) toast('Datos al día');
     render();
   } catch (e) {
@@ -473,6 +497,7 @@ async function sincronizar(mostrar) {
     else if (mostrar) toast('Sin conexión. Lo apuntado se enviará después.');
   }
   sincronizando = false; pintarEstado();
+  if (repetir && S.online && S.pend.length) sincronizar();
 }
 function explicarError(e) {
   const m = String(e && e.message || e);
@@ -1070,6 +1095,20 @@ function hojaFiestasXml(xml, lineas) {
   return xml.replace(/<dimension ref="[^"]*"\/>/, '<dimension ref="A1:E' + a + '"/>')
     .replace(/<sheetData>[\s\S]*<\/sheetData>|<sheetData\/>/, '<sheetData>' + filas.join('') + '</sheetData>');
 }
+const HOJAS_MES = ['MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE', 'ENERO', 'FEBRERO'];
+/* nombre de hoja (en mayúsculas) → archivo dentro del .xlsx */
+function rutasHojas(wb, rels) {
+  const dest = {}, out = {};
+  (rels.match(/<Relationship\b[^>]*>/g) || []).forEach(r => {
+    const id = (r.match(/\bId="([^"]+)"/) || [])[1], t = (r.match(/\bTarget="([^"]+)"/) || [])[1];
+    if (id && t) dest[id] = t.charAt(0) === '/' ? t.slice(1) : 'xl/' + t;
+  });
+  (wb.match(/<sheet\b[^>]*>/g) || []).forEach(h => {
+    const n = (h.match(/\bname="([^"]+)"/) || [])[1], id = (h.match(/\br:id="([^"]+)"/) || [])[1];
+    if (n && dest[id]) out[n.trim().toUpperCase()] = dest[id];
+  });
+  return out;
+}
 async function exportarExcel(y) {
   if (S.demo) { toast('En la versión de prueba no se descarga. En la app de verdad sale la Excel del año.'); return; }
   const b = $('#xlBtn'); const txt = b.textContent; b.disabled = true; b.textContent = 'Preparando la Excel…';
@@ -1079,11 +1118,13 @@ async function exportarExcel(y) {
     if (!r.ok) throw new Error('plantilla');
     const zip = await JSZip.loadAsync(await r.arrayBuffer());
     const ms = mesesTemporada(y);
-    for (let i = 0; i < 12; i++) {   // sheet2 = Marzo … sheet13 = Febrero
-      const p = `xl/worksheets/sheet${i + 2}.xml`;
+    // las hojas se buscan por su nombre (Marzo … Febrero, FIESTAS): da igual el orden si alguien toca la plantilla
+    const rutas = rutasHojas(await zip.file('xl/workbook.xml').async('string'), await zip.file('xl/_rels/workbook.xml.rels').async('string'));
+    for (let i = 0; i < 12; i++) {
+      const p = rutas[HOJAS_MES[i]]; if (!p || !zip.file(p)) throw new Error('plantilla');
       zip.file(p, rellenarMes(await zip.file(p).async('string'), delMes(ms[i])));
     }
-    const fp = 'xl/worksheets/sheet14.xml';
+    const fp = rutas.FIESTAS; if (!fp || !zip.file(fp)) throw new Error('plantilla');
     zip.file(fp, hojaFiestasXml(await zip.file(fp).async('string'), lineasFiestas(y)));
     const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Gastos_Muzqui_${y}-${y + 1}.xlsx`;
