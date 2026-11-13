@@ -172,6 +172,15 @@ main { max-width: 1040px; margin: 0 auto; padding: 18px 16px 30px; }
 .flista .filtro { border-bottom: 1px solid var(--rule); }
 .guia { display: flex; gap: 6px; flex-wrap: wrap; max-height: 9.6em; overflow: auto; }
 .guia .chip { min-height: 36px; padding: 4px 12px; font-size: .88rem; }
+.dup { border: 2px solid var(--ember); background: var(--ember-soft); border-radius: 12px; padding: 12px 14px; margin-top: 14px; display: grid; gap: 10px; }
+.dup p { margin: 0; } .dup b.t { display: block; color: var(--ember); font-size: 1.02rem; }
+.dup .seg button { flex: 1; }
+.buscar { position: relative; }
+.buscar svg { position: absolute; left: 14px; top: 50%; translate: 0 -50%; width: 20px; height: 20px; color: var(--ink-2); pointer-events: none; }
+.buscar input { width: 100%; min-height: 52px; border-radius: 26px; border: 1.5px solid var(--rule); background: var(--sheet); padding: 10px 46px 10px 44px; font-size: 1.02rem; box-shadow: var(--shadow); }
+.buscar input:focus { border-color: var(--act); outline: none; }
+.buscar input::-webkit-search-cancel-button, .buscar input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
+.buscar .limpiar { position: absolute; right: 6px; top: 50%; translate: 0 -50%; width: 40px; height: 40px; border-radius: 50%; border: 0; background: transparent; font-size: 1.3rem; color: var(--ink-2); }
 .panel { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 14px; display: grid; gap: 12px; box-shadow: var(--shadow); }
 .panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .seg { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -320,7 +329,7 @@ const CONCS = [
   { k: 'EXTRA', n: 'Extras', d: 'Comisiones, cambios…', t: 'g', i: 'extra', col: 'Q' },
   { k: 'SOBRE CENA', n: 'Cena', d: 'Sobre', t: 'i', i: 'plato', col: 'S', sobre: true },
   { k: 'SOBRE BEBIDA', n: 'Bebida', d: 'Sobre', t: 'i', i: 'copa', col: 'U', sobre: true },
-  { k: 'INGRESO CAJA', n: 'Ingreso de caja', d: 'Dinero de la caja al banco', t: 'i', i: 'hucha', col: 'W' },
+  { k: 'INGRESO CAJA', n: 'Ingreso de caja', d: 'Lo que se deja en la caja al tomar algo', t: 'i', i: 'hucha', col: 'W' },
   { k: 'SOBRE LEÑA', n: 'Leña', d: 'Sobre', t: 'i', i: 'lena', col: 'Y', sobre: true },
   { k: 'COBRO INTERNET', n: 'Internet / fútbol', d: 'Lo que ponen por el fútbol', t: 'i', i: 'balon', col: 'AA' },
   { k: 'INGRESO EXTRA', n: 'Cuotas y otros', d: 'Cuotas de socios, extras', t: 'i', i: 'gente', col: 'AC' },
@@ -678,18 +687,79 @@ function vApuntar() {
 }
 
 /* ---- El mes ---- */
+/* buscador: por concepto, nota, nombre del sobre o importe; en el año de la soci o en todo */
+const normal = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+function buscar(q, todo) {
+  const n = normal(q).trim(); if (!n) return [];
+  const imp = /\d/.test(n) ? leerImporte(q) : null;
+  const y = temporadaDe(S.mes + '-01');
+  const base = S.movs.filter(g => !esFiesta(g) && (todo || temporadaDe(g.fecha) === y));
+  return apuntes(base).filter(a => {
+    if (imp && !isNaN(imp) && Math.abs(a.importe - imp) < 0.005) return true;
+    if (imp && !isNaN(imp) && a.sobre && PARTES.some(p => Math.abs((a.partes[p] || 0) - imp) < 0.005)) return true;
+    const txt = a.sobre ? ['sobre', a.quien, ...PARTES.filter(p => a.partes[p]).map(p => C[p].n)].join(' ') : [C[a.concepto]?.n, C[a.concepto]?.d, a.nota].join(' ');
+    return n.split(/\s+/).every(w => normal(txt).includes(w));
+  }).sort((a, b) => b.fecha.localeCompare(a.fecha));
+}
+function htmlBusqueda() {
+  const res = buscar(S.busca, S.buscaTodo);
+  const y = temporadaDe(S.mes + '-01');
+  const e = suma(res.filter(a => a.sobre || C[a.concepto]?.t === 'i')), s_ = suma(res.filter(a => !a.sobre && C[a.concepto]?.t === 'g'));
+  const meses = new Map(); res.forEach(a => { const m = mesDe(a.fecha); meses.set(m, (meses.get(m) || 0) + a.importe); });
+  const fila = a => {
+    const d = `<span class="d"><b>${/^X/.test(a.id) && !a.sobre ? '–' : +a.fecha.slice(8, 10)}</b><span>${MESES_C[+a.fecha.slice(5, 7) - 1]} ${a.fecha.slice(2, 4)}</span></span>`;
+    if (a.sobre) return `<button type="button" class="mov sob" data-sobre="${esc(a.id)}">${d}<span class="c"><b>${svg('sobre', 'style="color:var(--ember)"')}Sobre${a.quien ? ' · ' + esc(capital(a.quien)) : ''}</b><small>${PARTES.filter(p => a.partes[p]).map(p => C[p].n + ' ' + eur(a.partes[p])).join(' · ')}</small></span><span class="i entra">+${eur(a.importe)}</span>${LAPIZ}</button>`;
+    const c = C[a.concepto] || C.VARIOS;
+    return `<button type="button" class="mov" data-id="${esc(a.id)}">${d}<span class="c"><b><span class="${c.t === 'g' ? 'sale' : 'entra'}" style="display:inline-flex">${icono(a.concepto)}</span>${esc(c.n)}</b><small>${esc(a.nota || c.d)}</small></span><span class="i ${c.t === 'g' ? 'sale' : 'entra'}">${c.t === 'g' ? '−' : '+'}${eur(a.importe)}</span>${LAPIZ}</button>`;
+  };
+  return `<div class="seg" role="group" aria-label="Dónde buscar"><button type="button" data-bt="0" class="${S.buscaTodo ? '' : 'on'}">Año ${y}-${String(y + 1).slice(2)}</button><button type="button" data-bt="1" class="${S.buscaTodo ? 'on' : ''}">Todos los años</button></div>
+    ${res.length ? `<div class="cifras">
+      <div class="cifra"><b>${res.length}</b><span>${res.length === 1 ? 'apunte' : 'apuntes'}</span></div>
+      ${s_ ? `<div class="cifra"><b class="sale">${eur(s_)} €</b><span>Sale</span></div>` : ''}
+      ${e ? `<div class="cifra"><b class="entra">${eur(e)} €</b><span>Entra</span></div>` : ''}
+      ${s_ && e ? '' : `<div class="cifra"><b>${eur((s_ + e) / Math.max(meses.size, 1))} €</b><span>Media por mes (${meses.size} ${meses.size === 1 ? 'mes' : 'meses'})</span></div>`}
+    </div>
+    <section class="cuaderno"><div class="cu-head"><h3>«${esc(S.busca.trim())}»</h3><span class="small muted">Toca para corregir</span></div>${res.map(fila).join('')}</section>`
+    : `<div class="panel"><p style="margin:0"><b>Nada con «${esc(S.busca.trim())}»</b></p><p class="small muted" style="margin:0">Prueba con otra palabra${S.buscaTodo ? '' : ' o busca en todos los años'}.</p></div>`}`;
+}
 function vMes() {
   const ym = S.mes, arr = delMes(ym);
+  const caja = `<div class="buscar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+    <input type="search" id="busca" placeholder="Buscar: BM, Urtasun, Inaci, 23,43…" value="${esc(S.busca || '')}" autocomplete="off" enterkeyhint="search" aria-label="Buscar apuntes">
+    ${S.busca ? '<button type="button" class="limpiar" id="buscaX" aria-label="Borrar búsqueda">×</button>' : ''}</div>`;
+  if (S.busca && S.busca.trim()) {
+    $('#app').innerHTML = `<div class="view">${caja}<div class="view" id="resBusca">${htmlBusqueda()}</div></div>`;
+    enlazarBusqueda(); return;
+  }
   const lista = t => CONCS.filter(c => c.t === t).map(c => [c, suma(arr.filter(g => g.concepto === c.k))]).filter(x => x[1]).sort((a, b) => b[1] - a[1]);
   const bars = (l, cls) => { const mx = l.length ? l[0][1] : 1; return l.length ? `<div class="barras ${cls}">${l.map(([c, v]) => `<div class="barra"><span>${c.sobre ? 'Sobres · ' : ''}${c.n}</span><b>${eur(v)} €</b><div class="t"><i style="width:${(v / mx * 100).toFixed(1)}%"></i></div></div>`).join('')}</div>` : '<p class="muted" style="margin:0">Nada todavía.</p>'; };
-  $('#app').innerHTML = `<div class="view two">
+  $('#app').innerHTML = `<div class="view">${caja}<div class="view two">
     ${htmlCuaderno(ym)}
     <div style="display:grid;gap:16px">
       <section class="panel"><div class="panel-head"><h3 class="entra">Entra</h3><b class="num entra">${eur(entra(arr))} €</b></div>${bars(lista('i'), 'i')}</section>
       <section class="panel"><div class="panel-head"><h3 class="sale">Sale</h3><b class="num sale">${eur(sale(arr))} €</b></div>${bars(lista('g'), 'g')}</section>
     </div>
-  </div>`;
+  </div></div>`;
+  enlazarCuaderno(); enlazarBusqueda();
+}
+let buscaT;
+function enlazarBusqueda() {
+  const inp = $('#busca'); if (!inp) return;
+  inp.oninput = () => {
+    clearTimeout(buscaT);
+    buscaT = setTimeout(() => {
+      const antes = !!(S.busca && S.busca.trim()); S.busca = inp.value;
+      const ahora = !!S.busca.trim();
+      if (antes !== ahora) { const pos = inp.selectionStart; vMes(); const i2 = $('#busca'); i2.focus(); try { i2.setSelectionRange(pos, pos); } catch (e) {} return; }
+      if (ahora) { $('#resBusca').innerHTML = htmlBusqueda(); enlazarResultados(); }
+    }, 180);
+  };
+  const x = $('#buscaX'); if (x) x.onclick = () => { S.busca = ''; vMes(); };
+  enlazarResultados();
+}
+function enlazarResultados() {
   enlazarCuaderno();
+  $$('[data-bt]').forEach(b => b.onclick = () => { S.buscaTodo = b.dataset.bt === '1'; $('#resBusca').innerHTML = htmlBusqueda(); enlazarResultados(); });
 }
 
 /* ---- Temporada (marzo a febrero, como la Excel) ---- */
@@ -871,6 +941,18 @@ const htmlFecha = f => `<div class="field"><span class="lab">Fecha</span><div cl
   <button type="button" class="chip ${f === hoyISO() ? 'on' : ''}" data-f="${hoyISO()}">Hoy</button>
   <button type="button" class="chip ${f === ayerISO() ? 'on' : ''}" data-f="${ayerISO()}">Ayer</button>
   <input type="date" id="fFecha" value="${f}" max="${hoyISO()}" style="width:auto;flex:1;min-width:150px" aria-label="Otro día"></div></div>`;
+/* «¿Ya estaba apuntado?»: aparece encima de los botones antes de guardar algo que parece repetido */
+function avisoRepetido(sh, texto, siGuardar) {
+  sh.querySelector('.dup')?.remove();
+  const d = document.createElement('div'); d.className = 'dup'; d.setAttribute('role', 'alert');
+  d.innerHTML = `<p><b class="t">¿Ya estaba apuntado?</b>${texto}</p>
+    <div class="seg"><button type="button" class="btn" data-dup="no">No, ya estaba</button><button type="button" class="btn go" data-dup="si">Sí, es otro: apuntar</button></div>`;
+  sh.querySelector('.acciones').before(d);
+  d.querySelector('[data-dup="no"]').onclick = () => { cerrarHoja(); toast('No se ha apuntado nada'); };
+  d.querySelector('[data-dup="si"]').onclick = siGuardar;
+  d.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+const cuando = f => `el ${+f.slice(8, 10)} de ${MESES_L[+f.slice(5, 7) - 1]}`;
 function borrarDosToques(btn, hacer) {
   btn.onclick = () => {
     if (btn.dataset.seguro) { hacer(); return; }
@@ -923,7 +1005,7 @@ function abrirSobre(o) {
     sh.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { leerTodo(); st.fecha = b.dataset.f; pinta(); });
     sh.querySelector('#fFecha').onchange = e => { if (e.target.value) { leerTodo(); st.fecha = e.target.value; pinta(); } };
     sh.querySelectorAll('[data-q]').forEach(b => b.onclick = () => { leerTodo(); st.quien = st.quien === b.dataset.q ? '' : b.dataset.q; pinta(); });
-    sh.querySelector('#fOk').onclick = guardar;
+    sh.querySelector('#fOk').onclick = () => { st.repetidoOk = false; guardar(); };
     const del = sh.querySelector('#fDel');
     if (del) borrarDosToques(del, () => { encolar(ed.map(g => ({ accion: 'borrar', id: g.id }))); cerrarHoja(); toast('Sobre borrado'); render(); });
   };
@@ -933,6 +1015,10 @@ function abrirSobre(o) {
     PARTES.forEach(p => { const v = leerImporte(st.v[p]); if (v !== null && (isNaN(v) || v < 0)) bien = false; vals[p] = v && v > 0 ? v : 0; });
     if (!bien) { toast('Revisa los importes'); return; }
     if (!PARTES.some(p => vals[p])) { toast('Pon al menos un importe'); sh.querySelector('[data-p]').focus(); return; }
+    if (!ed && !st.repetidoOk) {
+      const igual = apuntes(delMes(mesDe(st.fecha))).find(a => a.sobre && a.fecha === st.fecha && PARTES.every(p => Math.abs((a.partes[p] || 0) - vals[p]) < 0.005));
+      if (igual) { avisoRepetido(sh, `Ese mismo día ya hay un sobre${igual.quien ? ' de ' + esc(capital(igual.quien)) : ''} con los mismos importes (${eur(igual.importe)} €).`, () => { st.repetidoOk = true; guardar(); }); return; }
+    }
     const gid = ed ? o.editar : nuevoId('S');
     const quien = unificar(st.quien, S.movs.filter(g => g.sobre && C[g.concepto]?.sobre && g.sobre !== gid).map(g => capital(g.nota)));
     const ops = [];
@@ -993,20 +1079,24 @@ function abrirHoja(o) {
       leido.textContent = v === null ? '' : isNaN(v) ? 'Escribe solo el número, por ejemplo 23,43' : v <= 0 ? 'El importe tiene que ser mayor que cero' : `Se apunta: ${eur(v)} €`;
     };
     imp.oninput = comprobar; comprobar();
-    imp.onkeydown = e => { if (e.key === 'Enter') guardar(); };
+    imp.onkeydown = e => { if (e.key === 'Enter') { st.repetidoOk = false; guardar(); } };
     sh.querySelector('.x').onclick = cerrarHoja;
     sh.querySelectorAll('[data-imp]').forEach(b => b.onclick = () => { imp.value = paraEscribir(+b.dataset.imp); comprobar(); });
     sh.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { st.fecha = b.dataset.f; pinta(); });
     sh.querySelector('#fFecha').onchange = e => { if (e.target.value) { st.fecha = e.target.value; pinta(); } };
     sh.querySelectorAll('[data-nota]').forEach(b => b.onclick = () => { sh.querySelector('#fNota').value = b.dataset.nota; });
     sh.querySelectorAll('[data-cc]').forEach(b => b.onclick = () => { st.concepto = b.dataset.cc; pinta(); });
-    sh.querySelector('#fOk').onclick = guardar;
+    sh.querySelector('#fOk').onclick = () => { st.repetidoOk = false; guardar(); };
     const del = sh.querySelector('#fDel');
     if (del) borrarDosToques(del, () => { encolar([{ accion: 'borrar', id: ed.id }]); cerrarHoja(); toast('Apunte borrado'); render(); });
   };
   const guardar = () => {
     const v = leerImporte(sh.querySelector('#fImp').value);
     if (v === null || isNaN(v) || v <= 0) { toast('Falta el importe'); sh.querySelector('#fImp').focus(); return; }
+    if (!ed && !st.repetidoOk) {
+      const igual = S.movs.filter(g => g.concepto === st.concepto && mesDe(g.fecha) === mesDe(st.fecha) && Math.abs(g.importe - v) < 0.005).sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
+      if (igual) { avisoRepetido(sh, `En ${MESES_L[+st.fecha.slice(5, 7) - 1]} ya hay ${esc(C[st.concepto].n.toLowerCase())} de <b class="num">${eur(v)} €</b>${/^X/.test(igual.id) ? '' : ', apuntado ' + cuando(igual.fecha)}${igual.nota ? ' (' + esc(igual.nota) + ')' : ''}.`, () => { st.repetidoOk = true; guardar(); }); return; }
+    }
     const mov = { id: ed ? ed.id : nuevoId('M'), fecha: st.fecha, concepto: st.concepto, importe: v, sobre: '',
       nota: unificar(sh.querySelector('#fNota').value, S.movs.filter(g => g.concepto === st.concepto && (!ed || g.id !== ed.id)).map(g => g.nota)) };
     encolar([{ accion: ed ? 'editar' : 'crear', mov }]);
