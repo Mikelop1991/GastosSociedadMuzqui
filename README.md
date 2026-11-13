@@ -5,7 +5,7 @@ Las cuentas de la soci: apuntar un sobre (cena, bebida y leña) o un recibo en d
 - **App**: `index.html` (PWA, sin dependencias). Se publica con GitHub Pages.
 - **Datos**: una hoja de Google Sheets (`Muzki_datos_app`, sube `Muzki_datos_app.xlsx` a Drive y ábrela con Hojas de cálculo) con la pestaña `Movimientos` (id, fecha, concepto, importe, nota, sobre, creado, modificado). Cada sobre son hasta tres filas (SOBRE CENA, SOBRE BEBIDA, SOBRE LEÑA) con el mismo código en `sobre`.
 - **Back**: `Code.gs`, pegado en Extensiones → Apps Script de esa hoja e implementado como aplicación web (ejecutar como: yo · acceso: cualquier usuario).
-- **Excel**: `plantilla.xlsx` es la Excel de la soci vacía, sin ningún dato (con los totales arreglados para sumar hasta la fila 488). La app la rellena en el propio aparato: un sobre por fila, cada pago o ingreso en su fila, con «Observaciones» como antes.
+- **Excel**: `plantilla.xlsx` es la Excel de la soci vacía, sin ningún dato, con la identidad de la app (escudo, verde entra / rojo sale). RESUMEN con tarjetas y gráficos, un mes por pestaña (mismas columnas de siempre, totales en la fila 4, datos desde la 6) y FIESTAS. `{ANIO}` y `{FIESTAS}` se cambian por el año al rellenarla. La app la rellena en el propio aparato: un sobre por fila, cada pago o ingreso en su fila, con «Observaciones» como antes.
 
 Conceptos (= columnas de la Excel). Sale: Iberdrola (luz), Leña, Internet, Urtasun, Bebida, Mancomunidad, Varios, Seguro (en la Excel va en la columna EXTRA con «Seguro» en Observaciones), Extra.
 

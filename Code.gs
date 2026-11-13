@@ -232,12 +232,13 @@ function excelDelAnio_(anio, movs) {
   HOJAS_MES.forEach((h, i) => { if (rutas[h]) queHoja[rutas[h]] = i; });
   if (Object.keys(queHoja).length < 12 || !rutas.FIESTAS) throw new Error('La plantilla no tiene las hojas Marzo … Febrero y FIESTAS');
   const salida = partes.map(b => {
-    if (b.getName() === rutas.FIESTAS) return Utilities.newBlob(hojaFiestasXml(b.getDataAsString('UTF-8'), lineasFiestas_(movs, anio)), 'application/xml', b.getName());
+    if (b.getName() === rutas.FIESTAS) return Utilities.newBlob(ponerAnios(hojaFiestasXml(b.getDataAsString('UTF-8'), lineasFiestas_(movs, anio)), anio), 'application/xml', b.getName());
+    if (b.getName() === rutas.RESUMEN) return Utilities.newBlob(ponerAnios(b.getDataAsString('UTF-8'), anio), 'application/xml', b.getName());
     const i = queHoja[b.getName()];
     if (i === undefined) return b;
     const mes = (i + 2) % 12 + 1, y = mes >= 3 ? anio : anio + 1;    // i = 0 → marzo … i = 11 → febrero
     const ym = y + '-' + ('0' + mes).slice(-2);
-    const xml = rellenarMesXl_(b.getDataAsString('UTF-8'), movs.filter(x => x.fecha.slice(0, 7) === ym && x.concepto.indexOf('FIESTAS') !== 0));
+    const xml = ponerAnios(rellenarMesXl_(b.getDataAsString('UTF-8'), movs.filter(x => x.fecha.slice(0, 7) === ym && x.concepto.indexOf('FIESTAS') !== 0)), anio);
     return Utilities.newBlob(xml, 'application/xml', b.getName());
   });
   return Utilities.zip(salida, 'Gastos_Muzqui_' + anio + '-' + (anio + 1) + '.xlsx')
@@ -268,25 +269,26 @@ function filasXl_(movs) {
       g.partes[m.concepto] = m.importe; if (m.fecha > g.fecha) g.fecha = m.fecha;
     } else lineas.push(m);
   });
-  const ddmm = f => (+f.slice(8, 10)) + '.' + (+f.slice(5, 7));
+  const ddmm = f => f.slice(8, 10) + '/' + f.slice(5, 7);
+  const cap = t => { t = String(t || '').trim(); return t ? t[0].toUpperCase() + t.slice(1) : ''; };
   const obs = c => COLS_XL[COLS_XL.indexOf(c) + 1];
   return lineas.sort((a, b) => a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : 0).map(a => {
     const v = {};
-    if (a.sobre) PARTES_SOBRE.forEach(p => { if (a.partes[p]) { v[COL_DE[p]] = a.partes[p]; v[obs(COL_DE[p])] = ('sobre ' + String(a.quien || '').toLowerCase() + ' ' + ddmm(a.fecha)).replace(/\s+/g, ' '); } });
+    if (a.sobre) { let primera = true; PARTES_SOBRE.forEach(p => { if (a.partes[p]) { v[COL_DE[p]] = a.partes[p]; if (primera) v[obs(COL_DE[p])] = ddmm(a.fecha) + ' · Sobre' + (a.quien ? ' de ' + cap(a.quien) : ''); primera = false; } }); }
     else {
       const col = COL_DE[a.concepto]; const nota = [PREFIJO_XL[a.concepto], a.nota].filter(Boolean).join(' · ');
-      v[col] = a.importe; v[obs(col)] = /^X/.test(a.id) ? nota : ddmm(a.fecha) + (nota ? ' ' + nota : '');
+      v[col] = a.importe; v[obs(col)] = /^X/.test(a.id) ? nota : [ddmm(a.fecha), nota].filter(Boolean).join(' · ');
     }
     return v;
   });
 }
-function celdaXl_(fila, col, n, valor) {
+function celdaXl_(fila, col, n, valor, sDef) {
   const ref = col + n;
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const re = new RegExp('<c r="' + ref + '"((?:\\s+[a-zA-Z:]+="[^"]*")*)\\s*(?:\\/>|>[\\s\\S]*?<\\/c>)');
   const prev = fila.match(re);
   const sm = prev && prev[1].match(/ s="(\d+)"/);
-  const s = sm ? ' s="' + sm[1] + '"' : '';
+  const s = sm ? ' s="' + sm[1] + '"' : (sDef ? ' s="' + sDef + '"' : '');
   const celda = typeof valor === 'number' ? '<c r="' + ref + '"' + s + '><v>' + valor + '</v></c>'
     : '<c r="' + ref + '"' + s + ' t="inlineStr"><is><t xml:space="preserve">' + esc(valor) + '</t></is></c>';
   if (prev) return fila.replace(re, celda);
@@ -297,17 +299,18 @@ function celdaXl_(fila, col, n, valor) {
 }
 function rellenarMesXl_(xml, movs) {
   const filas = filasXl_(movs), hechas = {};
+  const base = {}; COLS_XL.forEach(c => [6, 7].forEach(r => { const m = xml.match(new RegExp('<c r="' + c + r + '"[^>]*? s="(\\d+)"')); base[c + (r % 2)] = m ? m[1] : ''; }));
   xml = xml.replace(/<row r="(\d+)"[^>]*?(?:\/>|>[\s\S]*?<\/row>)/g, (fila, nn) => {
     const n = +nn, v = filas[n - 6]; if (n < 6 || n > 488 || !v) return fila;
     if (/\/>$/.test(fila) && !/<\/row>$/.test(fila)) fila = fila.replace(/\/>$/, '></row>');
     hechas[n] = 1;
-    COLS_XL.forEach(c => { if (v[c] !== undefined) fila = celdaXl_(fila, c, n, v[c]); });
+    COLS_XL.forEach(c => { if (v[c] !== undefined) fila = celdaXl_(fila, c, n, v[c], base[c + (n % 2)]); });
     return fila;
   });
   filas.forEach((v, i) => {
     const n = i + 6; if (hechas[n] || n > 488) return;
     let r = '<row r="' + n + '"></row>';
-    COLS_XL.forEach(c => { if (v[c] !== undefined) r = celdaXl_(r, c, n, v[c]); });
+    COLS_XL.forEach(c => { if (v[c] !== undefined) r = celdaXl_(r, c, n, v[c], base[c + (n % 2)]); });
     const re = /<row r="(\d+)"/g; let m, pos = -1;
     while ((m = re.exec(xml))) { if (+m[1] > n) { pos = m.index; break; } }
     xml = pos >= 0 ? xml.slice(0, pos) + r + xml.slice(pos) : xml.replace('</sheetData>', r + '</sheetData>');
@@ -325,27 +328,39 @@ function lineasFiestas_(movs, anio) {
   });
   return orden.sort((a, b) => a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : a.id < b.id ? -1 : 1);
 }
-/* hoja FIESTAS de la Excel: una línea por concepto (gasto, ingreso, y «ayunta» si lo paga el ayuntamiento),
-   el total con su beneficio, y debajo lo que paga el ayuntamiento */
+/* hoja FIESTAS de la Excel: copia los formatos de la plantilla (fila 3 = línea, 4 = total, 5 = resultado)
+   y escribe una línea por concepto, el total, el resultado y lo que paga el ayuntamiento */
 function hojaFiestasXml(xml, lineas) {
   const e = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const t = (ref, v, s) => '<c r="' + ref + '"' + (s ? ' s="' + s + '"' : '') + ' t="inlineStr"><is><t xml:space="preserve">' + e(v) + '</t></is></c>';
-  const n = (ref, v, s) => '<c r="' + ref + '"' + (s ? ' s="' + s + '"' : '') + (v === '' ? '/>' : '><v>' + v + '</v></c>');
-  const f = (ref, fo, s) => '<c r="' + ref + '"' + (s ? ' s="' + s + '"' : '') + '><f>' + fo + '</f></c>';
-  const filas = ['<row r="1"/>', '<row r="2">' + t('A2', 'CONCEPTO', 99) + t('B2', 'GASTOS', 99) + t('C2', 'INGRESOS', 100) + t('D2', 'OBSERVACIONES', 99) + '</row>'];
+  const st = ref => { const m = xml.match(new RegExp('<c r="' + ref + '"[^>]*? s="(\\d+)"')); return m ? ' s="' + m[1] + '"' : ''; };
+  const S = {}; ['A2', 'A3', 'B3', 'C3', 'D3', 'A4', 'B4', 'C4', 'D4', 'A5', 'B5', 'C5', 'D5'].forEach(r => S[r] = st(r));
+  const t = (ref, v, s) => '<c r="' + ref + '"' + s + ' t="inlineStr"><is><t xml:space="preserve">' + e(v) + '</t></is></c>';
+  const n = (ref, v, s) => '<c r="' + ref + '"' + s + (v ? '><v>' + v + '</v></c>' : '/>');
+  const f = (ref, fo, s) => '<c r="' + ref + '"' + s + '><f>' + fo + '</f></c>';
+  const fila = (r, celdas) => '<row r="' + r + '">' + celdas.join('') + '</row>';
+  const cab = (xml.match(/<row r="1"[\s\S]*?<\/row>/) || [''])[0] + (xml.match(/<row r="2"[\s\S]*?<\/row>/) || [''])[0];
+  const filas = [];
   let r = 3;
-  lineas.forEach(l => {
-    filas.push('<row r="' + r + '">' + t('A' + r, l.concepto, 76) + n('B' + r, l.gasto || '', 76) + n('C' + r, l.ingreso || '', 76) + (l.ayto ? t('D' + r, 'ayunta') : '') + '</row>');
+  (lineas.length ? lineas : [null]).forEach(l => {
+    filas.push(fila(r, l ? [t('A' + r, l.concepto, S.A3), n('B' + r, l.gasto, S.B3), n('C' + r, l.ingreso, S.C3), l.ayto ? t('D' + r, 'Lo paga el ayuntamiento', S.D3) : n('D' + r, 0, S.D3)]
+      : [n('A' + r, 0, S.A3), n('B' + r, 0, S.B3), n('C' + r, 0, S.C3), n('D' + r, 0, S.D3)]));
     r++;
   });
-  const fin = Math.max(r - 1, 3), tot = Math.max(r, 4);
-  filas.push('<row r="' + tot + '">' + t('A' + tot, 'TOTAL', 99) + f('B' + tot, 'SUM(B3:B' + fin + ')', 105) + f('C' + tot, 'SUM(C3:C' + fin + ')', 105) + f('D' + tot, 'C' + tot + '-B' + tot, 106) + t('E' + tot, '← beneficio') + '</row>');
+  const fin = r - 1, tot = r, resu = r + 1;
+  filas.push(fila(tot, [t('A' + tot, 'TOTAL', S.A4), f('B' + tot, 'SUM(B3:B' + fin + ')', S.B4), f('C' + tot, 'SUM(C3:C' + fin + ')', S.C4), n('D' + tot, 0, S.D4)]));
+  filas.push(fila(resu, [t('A' + resu, 'RESULTADO', S.A5), n('B' + resu, 0, S.B5), f('C' + resu, 'C' + tot + '-B' + tot, S.C5), n('D' + resu, 0, S.D5)]));
   const ay = lineas.filter(l => l.ayto);
-  let a = tot + 3;
-  filas.push('<row r="' + a + '">' + t('A' + a, 'Lo paga el ayuntamiento') + '</row>');
-  const ini = a + 1;
-  ay.forEach(l => { a++; filas.push('<row r="' + a + '">' + t('B' + a, l.concepto) + n('C' + a, l.ingreso || l.gasto) + '</row>'); });
-  a++; filas.push('<row r="' + a + '">' + t('B' + a, 'TOTAL') + f('C' + a, 'SUM(C' + ini + ':C' + Math.max(a - 1, ini) + ')') + '</row>');
-  return xml.replace(/<dimension ref="[^"]*"\/>/, '<dimension ref="A1:E' + a + '"/>')
-    .replace(/<sheetData>[\s\S]*<\/sheetData>|<sheetData\/>/, '<sheetData>' + filas.join('') + '</sheetData>');
+  let a = resu + 2;
+  if (ay.length) {
+    filas.push(fila(a, [t('A' + a, 'Lo paga el ayuntamiento', S.A2), n('B' + a, 0, S.A2), n('C' + a, 0, S.A2), n('D' + a, 0, S.A2)]));
+    const ini = a + 1;
+    ay.forEach(l => { a++; filas.push(fila(a, [t('A' + a, l.concepto, S.A3), n('B' + a, 0, S.B3), n('C' + a, l.ingreso || l.gasto, S.C3), n('D' + a, 0, S.D3)])); });
+    a++; filas.push(fila(a, [t('A' + a, 'Total ayuntamiento', S.A4), n('B' + a, 0, S.B4), f('C' + a, 'SUM(C' + ini + ':C' + (a - 1) + ')', S.C4), n('D' + a, 0, S.D4)]));
+  }
+  return xml.replace(/<dimension ref="[^"]*"\/>/, '<dimension ref="A1:D' + a + '"/>')
+    .replace(/<sheetData>[\s\S]*<\/sheetData>|<sheetData\/>/, '<sheetData>' + cab + filas.join('') + '</sheetData>');
+}
+/* año en los títulos de la plantilla */
+function ponerAnios(xml, anio) {
+  return xml.replace(/\{ANIO\}/g, anio + '-' + (anio + 1)).replace(/\{FIESTAS\}/g, String(anio));
 }
