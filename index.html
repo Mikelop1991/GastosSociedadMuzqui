@@ -606,7 +606,7 @@ function cabecera() {
   const e = entra(arr), s = sale(arr), r = Math.round((e - s) * 100) / 100;
   const [a, c] = eur(Math.abs(r)).split(',');
   $('#totalTxt').innerHTML = `${r < 0 ? '−' : ''}${a}<small>,${c} €</small>`;
-  $('#vsTxt').innerHTML = `<span>Entra <b>${eur(e)} €</b></span><span>Sale <b>${eur(s)} €</b></span>`;
+  $('#vsTxt').innerHTML = `<span>Ingresos <b>${eur(e)} €</b></span><span>Gastos <b>${eur(s)} €</b></span>`;
 }
 function render() {
   cabecera();
@@ -642,11 +642,11 @@ function htmlCuaderno(ym, max) {
   const nm = MESES_L[+ym.slice(5) - 1];
   return `<section class="cuaderno" aria-label="Movimientos de ${nombreMes(ym)}">
     <div class="cu-head"><h3>Cuaderno de ${nm}</h3><span class="small muted">${arr.length} ${arr.length === 1 ? 'apunte' : 'apuntes'}</span></div>
-    ${max ? '' : `<div class="filtro seg" role="group" aria-label="Mostrar">${[['todo', 'Todo'], ['sobres', 'Sobres'], ['e', 'Entra'], ['s', 'Sale']].map(([k, t]) => `<button type="button" data-filtro="${k}" class="${S.filtro === k ? 'on' : ''}">${t}</button>`).join('')}</div>`}
+    ${max ? '' : `<div class="filtro seg" role="group" aria-label="Mostrar">${[['todo', 'Todo'], ['sobres', 'Sobres'], ['e', 'Ingresos'], ['s', 'Gastos']].map(([k, t]) => `<button type="button" data-filtro="${k}" class="${S.filtro === k ? 'on' : ''}">${t}</button>`).join('')}</div>`}
     ${arr.length ? `<div class="cu-hint">${LAPIZ.replace('class="lapiz"', '')}Toca un apunte para corregirlo o borrarlo.</div>` : ''}
     ${arr.length ? vis.map(fila).join('') : `<div class="vacio">Nada apuntado${S.filtro !== 'todo' && !max ? ' con este filtro' : ''} en ${nm}.</div>`}
     ${max && arr.length > max ? `<button type="button" class="mov" id="verTodo" style="display:block;color:var(--ember);font-weight:700">Ver los ${arr.length} apuntes</button>` : ''}
-    <div class="cu-foot"><span>Entra</span><span class="entra">+${eur(e)} €</span><span>Sale</span><span class="sale">−${eur(s)} €</span>
+    <div class="cu-foot"><span>Ingresos</span><span class="entra">+${eur(e)} €</span><span>Gastos</span><span class="sale">−${eur(s)} €</span>
       <span class="r">Queda</span><span class="r">${eur(e - s)} €</span></div>
   </section>`;
 }
@@ -676,8 +676,8 @@ function vApuntar() {
         <ul>${fl.map((f, i) => `<li><div class="q"><b>${esc(f.r.n)}</b><span>La última vez: <b class="num">${eur(f.ult.importe)} €</b>, el ${+f.ult.fecha.slice(8, 10)} de ${MESES_L[+f.ult.fecha.slice(5, 7) - 1]}</span></div>
           <button type="button" class="btn sm go" data-falta="${i}">Apuntar</button></li>`).join('')}</ul>
       </section>` : ''}
-      <section><p class="ask">Pagos <span class="pill s">sale</span></p><div class="cats">${GASTOS.map(cat).join('')}</div></section>
-      <section><p class="ask">Otros ingresos <span class="pill e">entra</span></p><div class="cats tres">${INGRESOS_SUELTOS.map(cat).join('')}</div></section>
+      <section><p class="ask">Pagos <span class="pill s">gasto</span></p><div class="cats">${GASTOS.map(cat).join('')}</div></section>
+      <section><p class="ask">Otros ingresos <span class="pill e">ingreso</span></p><div class="cats tres">${INGRESOS_SUELTOS.map(cat).join('')}</div></section>
     </div>
     ${htmlCuaderno(ym, 8)}
   </div>`;
@@ -716,8 +716,8 @@ function htmlBusqueda() {
   return `<div class="seg" role="group" aria-label="Dónde buscar"><button type="button" data-bt="0" class="${S.buscaTodo ? '' : 'on'}">Año ${y}-${String(y + 1).slice(2)}</button><button type="button" data-bt="1" class="${S.buscaTodo ? 'on' : ''}">Todos los años</button></div>
     ${res.length ? `<div class="cifras">
       <div class="cifra"><b>${res.length}</b><span>${res.length === 1 ? 'apunte' : 'apuntes'}</span></div>
-      ${s_ ? `<div class="cifra"><b class="sale">${eur(s_)} €</b><span>Sale</span></div>` : ''}
-      ${e ? `<div class="cifra"><b class="entra">${eur(e)} €</b><span>Entra</span></div>` : ''}
+      ${s_ ? `<div class="cifra"><b class="sale">${eur(s_)} €</b><span>Gastos</span></div>` : ''}
+      ${e ? `<div class="cifra"><b class="entra">${eur(e)} €</b><span>Ingresos</span></div>` : ''}
       ${s_ && e ? '' : `<div class="cifra"><b>${eur((s_ + e) / Math.max(meses.size, 1))} €</b><span>Media por mes (${meses.size} ${meses.size === 1 ? 'mes' : 'meses'})</span></div>`}
     </div>
     <section class="cuaderno"><div class="cu-head"><h3>«${esc(S.busca.trim())}»</h3><span class="small muted">Toca para corregir</span></div>${res.map(fila).join('')}</section>`
@@ -737,8 +737,8 @@ function vMes() {
   $('#app').innerHTML = `<div class="view">${caja}<div class="view two">
     ${htmlCuaderno(ym)}
     <div style="display:grid;gap:16px">
-      <section class="panel"><div class="panel-head"><h3 class="entra">Entra</h3><b class="num entra">${eur(entra(arr))} €</b></div>${bars(lista('i'), 'i')}</section>
-      <section class="panel"><div class="panel-head"><h3 class="sale">Sale</h3><b class="num sale">${eur(sale(arr))} €</b></div>${bars(lista('g'), 'g')}</section>
+      <section class="panel"><div class="panel-head"><h3 class="entra">Ingresos</h3><b class="num entra">${eur(entra(arr))} €</b></div>${bars(lista('i'), 'i')}</section>
+      <section class="panel"><div class="panel-head"><h3 class="sale">Gastos</h3><b class="num sale">${eur(sale(arr))} €</b></div>${bars(lista('g'), 'g')}</section>
     </div>
   </div></div>`;
   enlazarCuaderno(); enlazarBusqueda();
@@ -781,19 +781,19 @@ function vTemporada() {
     <div class="panel-head"><h2 style="margin:0">Resumen anual ${y}-${y + 1}</h2>
       <div class="seg" role="group" aria-label="Año">${temps.map(a => `<button type="button" data-t="${a}" class="${a === y ? 'on' : ''}">${a}-${String(a + 1).slice(2)}</button>`).join('')}</div></div>
     <div class="cifras">
-      <div class="cifra"><b class="entra">${eur(E)} €</b><span>Entra</span></div>
-      <div class="cifra"><b class="sale">${eur(Sa)} €</b><span>Sale</span></div>
+      <div class="cifra"><b class="entra">${eur(E)} €</b><span>Ingresos</span></div>
+      <div class="cifra"><b class="sale">${eur(Sa)} €</b><span>Gastos</span></div>
       <div class="cifra"><b>${eur(E - Sa)} €</b><span>Beneficio</span></div>
       <div class="cifra"><b>${sobres.length}</b><span>Sobres · media ${sobres.length ? eur(suma(sobres) / sobres.length) : '0,00'} €</span></div>
     </div>
-    <section class="panel"><div class="panel-head"><h3>Mes a mes <span class="muted small" style="font-family:var(--f-ui);font-weight:400">· de marzo a febrero</span></h3><span class="ley"><span><i style="background:var(--olive)"></i>Entra</span><span><i style="background:var(--wine)"></i>Sale</span></span></div>
-      <div class="meses">${ms.map((m, i) => `<button type="button" class="mcol ${m === S.mes ? 'sel' : ''}" data-m="${m}" aria-label="${nombreMes(m)}: entra ${eur(ee[i])}, sale ${eur(ss[i])} euros">
+    <section class="panel"><div class="panel-head"><h3>Mes a mes <span class="muted small" style="font-family:var(--f-ui);font-weight:400">· de marzo a febrero</span></h3><span class="ley"><span><i style="background:var(--olive)"></i>Ingresos</span><span><i style="background:var(--wine)"></i>Gastos</span></span></div>
+      <div class="meses">${ms.map((m, i) => `<button type="button" class="mcol ${m === S.mes ? 'sel' : ''}" data-m="${m}" aria-label="${nombreMes(m)}: ingresos ${eur(ee[i])}, gastos ${eur(ss[i])} euros">
         <span class="par"><i class="e" style="height:${(ee[i] / mx * 100).toFixed(1)}%"></i><i class="s" style="height:${(ss[i] / mx * 100).toFixed(1)}%"></i></span><span>${MESES_C[+m.slice(5) - 1]}</span></button>`).join('')}</div>
       <p class="small muted" style="margin:0">Toca un mes para ver su cuaderno.</p>
     </section>
     <div class="view two">
-      <section class="panel"><h3 class="entra">De dónde entra</h3>${E ? bars(rank('i'), 'i', E) : '<p class="muted" style="margin:0">Nada todavía.</p>'}</section>
-      <section class="panel"><h3 class="sale">En qué se va</h3>${Sa ? bars(rank('g'), 'g', Sa) : '<p class="muted" style="margin:0">Nada todavía.</p>'}</section>
+      <section class="panel"><h3 class="entra">Ingresos por concepto</h3>${E ? bars(rank('i'), 'i', E) : '<p class="muted" style="margin:0">Nada todavía.</p>'}</section>
+      <section class="panel"><h3 class="sale">Gastos por concepto</h3>${Sa ? bars(rank('g'), 'g', Sa) : '<p class="muted" style="margin:0">Nada todavía.</p>'}</section>
     </div>
     <div class="view two">
       <section class="panel"><h3>Quién trae sobres</h3>${ql.length ? `<div class="barras q">${ql.map(([k, o]) => `<div class="barra"><span>${esc(k)}</span><b>${o.n} <span class="muted small">· ${eur(o.v)} €</span></b><div class="t"><i style="width:${(o.n / qm * 100).toFixed(1)}%"></i></div></div>`).join('')}</div>` : '<p class="muted" style="margin:0">Sin sobres.</p>'}</section>
@@ -893,7 +893,7 @@ function formFiestas(l, anio) {
       <label>Gasto (€)<input type="text" id="fg" inputmode="decimal" value="${l && l.gasto ? paraEscribir(l.gasto) : ''}" placeholder="0,00"></label>
       <label id="fiLab">Ingreso (€)<input type="text" id="fi" inputmode="decimal" value="${l && l.ingreso && !l.ayto ? paraEscribir(l.ingreso) : ''}" placeholder="0,00"></label>
     </div>
-    <label class="check"><input type="checkbox" id="fa" ${l && l.ayto ? 'checked' : ''}><span>Lo paga el ayuntamiento<br><span class="muted small" style="font-weight:400">Entra lo mismo que se gasta</span></span></label>
+    <label class="check"><input type="checkbox" id="fa" ${l && l.ayto ? 'checked' : ''}><span>Lo paga el ayuntamiento<br><span class="muted small" style="font-weight:400">El ingreso es lo mismo que el gasto</span></span></label>
     <label>Día<input type="date" id="ff" value="${fecha}"></label>
     <div class="leido mal" id="fMal"></div>
     <button type="submit" class="btn go wide">${l ? 'Guardar cambios' : 'Añadir a las fiestas de ' + anio}</button>
@@ -1098,7 +1098,7 @@ function abrirHoja(o) {
     const importes = [...new Set(previos.map(g => g.importe))].slice(0, 4);
     const notas = notasUnicas(previos.map(g => g.nota)).slice(0, 8).map(u => u.t);
     sh.innerHTML = `<div class="grab"></div>
-      <div class="sheet-head"><span class="${c.t === 'g' ? 'sale' : 'entra'}" style="display:flex">${icono(st.concepto)}</span><h2 id="shTit">${ed ? 'Corregir · ' : ''}${esc(c.n)} <span class="pill ${c.t === 'g' ? 's' : 'e'} small" style="font-family:var(--f-ui);font-size:.7rem;padding:2px 8px;border-radius:999px;vertical-align:3px">${c.t === 'g' ? 'SALE' : 'ENTRA'}</span></h2><button type="button" class="x" aria-label="Cerrar">×</button></div>
+      <div class="sheet-head"><span class="${c.t === 'g' ? 'sale' : 'entra'}" style="display:flex">${icono(st.concepto)}</span><h2 id="shTit">${ed ? 'Corregir · ' : ''}${esc(c.n)} <span class="pill ${c.t === 'g' ? 's' : 'e'} small" style="font-family:var(--f-ui);font-size:.7rem;padding:2px 8px;border-radius:999px;vertical-align:3px">${c.t === 'g' ? 'GASTO' : 'INGRESO'}</span></h2><button type="button" class="x" aria-label="Cerrar">×</button></div>
       <div class="tarjeta">
         <div class="field"><label for="fImp">Importe</label>
           <div class="importe"><input id="fImp" inputmode="decimal" autocomplete="off" enterkeyhint="done" placeholder="0,00" value="${ed ? paraEscribir(ed.importe) : (o.importe != null ? paraEscribir(o.importe) : '')}"><span>€</span></div>
@@ -1306,7 +1306,7 @@ async function imprimirInforme(per) {
     if (d.hastaHoy) doc.text(`Datos hasta ese día`, R - 4, 23, { align: 'right' });
     // tarjetas
     const kw = (W - 8) / 3;
-    [['ENTRA', d.E, 'g', 'gS'], ['SALE', d.Sa, 'r', 'rS'], ['RESULTADO', d.E - d.Sa, 'ink', 'kraft']].forEach(([t, v, c, s], k) => {
+    [['INGRESOS', d.E, 'g', 'gS'], ['GASTOS', d.Sa, 'r', 'rS'], ['RESULTADO', d.E - d.Sa, 'ink', 'kraft']].forEach(([t, v, c, s], k) => {
       const x = L + k * (kw + 4);
       doc.setFillColor(...C_[s]); doc.roundedRect(x, 37, kw, 17, 2, 2, 'F'); doc.setFillColor(...C_[c]); doc.rect(x, 37, kw, 1.2, 'F');
       doc.setFont('helvetica', 'bold'); doc.setFontSize(7.5); col(c); doc.text(t, x + 4, 43.5);
@@ -1320,7 +1320,7 @@ async function imprimirInforme(per) {
     let y = titulo('Mes a mes', 62);
     const cuerpo = d.filas.map(f => f.vacio ? [d.nombre(f.m), '—', '—'] : [d.nombre(f.m), eur(f.e), eur(f.s)]);
     doc.autoTable({ startY: y + 0.5, margin: { left: L, right: L }, theme: 'plain', styles: estilo, headStyles: cab, footStyles: pie,
-      head: [['MES', 'ENTRA', 'SALE']], body: cuerpo,
+      head: [['MES', 'INGRESOS', 'GASTOS']], body: cuerpo,
       foot: [['Total', num(d.E), num(d.Sa)], [{ content: 'Resultado del periodo', styles: { fillColor: C_.kraft, lineWidth: 0 } }, { content: num(d.E - d.Sa), colSpan: 2, styles: { fillColor: C_.kraft, lineWidth: 0, halign: 'right', fontSize: 11 } }]],
       columnStyles: { 0: { cellWidth: 74 }, 1: { halign: 'right' }, 2: { halign: 'right' } },
       didParseCell: c => { if (c.column.index > 0) c.cell.styles.halign = 'right';
@@ -1337,7 +1337,7 @@ async function imprimirInforme(per) {
         didParseCell: q => { if (q.column.index > 0) q.cell.styles.halign = 'right'; if (q.section === 'foot' && q.column.index === 1) q.cell.styles.textColor = C_[c]; } });
       return doc.lastAutoTable.finalY;
     };
-    const f1 = tabla(d.ingresos, d.E, 'g', L, 'De dónde entra'), f2 = tabla(d.gastos, d.Sa, 'r', L + half + 8, 'En qué se va');
+    const f1 = tabla(d.ingresos, d.E, 'g', L, 'Ingresos por concepto'), f2 = tabla(d.gastos, d.Sa, 'r', L + half + 8, 'Gastos por concepto');
     y = Math.max(f1, f2) + 5;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(8); col('ink2');
     doc.text(`${d.sobres} sobres en el periodo, ${num(d.sobresTotal)} en total${d.sobres ? ` (media de ${num(d.sobresTotal / d.sobres)} por sobre)` : ''}.`, L, y);

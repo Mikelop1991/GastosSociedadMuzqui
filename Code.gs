@@ -214,8 +214,8 @@ function enviarExcelMensual() {
   MailApp.sendEmail({
     to: CORREO_EXCEL,
     subject: 'Sociedad Muzki · cuentas de ' + mes,
-    htmlBody: '<p>Cuentas de <b>' + mes + '</b>:</p><ul><li>Entra: <b>' + e(entra) + '</b> (' + Object.keys(sobres).length + ' sobres)</li>' +
-      '<li>Sale: <b>' + e(sale) + '</b></li><li>Queda: <b>' + e(entra - sale) + '</b></li></ul>' +
+    htmlBody: '<p>Cuentas de <b>' + mes + '</b>:</p><ul><li>Ingresos: <b>' + e(entra) + '</b> (' + Object.keys(sobres).length + ' sobres)</li>' +
+      '<li>Gastos: <b>' + e(sale) + '</b></li></ul>' +
       '<p>Va adjunta la Excel del año ' + anio + '-' + (anio + 1) + ' con todo lo apuntado hasta el ' + ('0' + new Date(hoy.getFullYear(), hoy.getMonth(), 0).getDate()).slice(-2) + ' de ' + MESES_N[cerrado.getMonth()] + '.</p>',
     attachments: [blob]
   });
