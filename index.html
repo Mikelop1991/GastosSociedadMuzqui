@@ -1318,27 +1318,15 @@ async function imprimirInforme(per) {
     const pie = { fillColor: C_.kraft, textColor: C_.ink, fontStyle: 'bold', font: 'times', fontSize: 9.5, lineColor: C_.ink, lineWidth: { top: 0.5 } };
     // mes a mes
     let y = titulo('Mes a mes', 62);
-    let acu = 0;
-    const cuerpo = d.filas.map(f => { acu += f.e - f.s; return f.vacio ? [d.nombre(f.m), '—', '—', '—', '—'] : [d.nombre(f.m), eur(f.e), eur(f.s), eur(f.e - f.s), eur(acu)]; });
+    const cuerpo = d.filas.map(f => f.vacio ? [d.nombre(f.m), '—', '—'] : [d.nombre(f.m), eur(f.e), eur(f.s)]);
     doc.autoTable({ startY: y + 0.5, margin: { left: L, right: L }, theme: 'plain', styles: estilo, headStyles: cab, footStyles: pie,
-      head: [['MES', 'ENTRA', 'SALE', 'RESULTADO', 'ACUMULADO']], body: cuerpo, foot: [['Total', num(d.E), num(d.Sa), num(d.E - d.Sa), '']],
-      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
+      head: [['MES', 'ENTRA', 'SALE']], body: cuerpo,
+      foot: [['Total', num(d.E), num(d.Sa)], [{ content: 'Resultado del periodo', styles: { fillColor: C_.kraft, lineWidth: 0 } }, { content: num(d.E - d.Sa), colSpan: 2, styles: { fillColor: C_.kraft, lineWidth: 0, halign: 'right', fontSize: 11 } }]],
+      columnStyles: { 0: { cellWidth: 74 }, 1: { halign: 'right' }, 2: { halign: 'right' } },
       didParseCell: c => { if (c.column.index > 0) c.cell.styles.halign = 'right';
         if (c.section === 'body' && d.filas[c.row.index].vacio) c.cell.styles.textColor = [185, 168, 152];
-        else if (c.section !== 'head') { if (c.column.index === 1) c.cell.styles.textColor = C_.g; if (c.column.index === 2) c.cell.styles.textColor = C_.r; } } });
-    y = doc.lastAutoTable.finalY + 4;
-    // gráfico: entra y sale por mes
-    const gh = 22, mx = Math.max(1, ...d.filas.map(f => Math.max(f.e, f.s))), cw = W / d.filas.length, bw = Math.min(4, cw * .3);
-    doc.setDrawColor(...C_.rule); doc.setLineWidth(0.3); doc.line(L, y + gh, R, y + gh);
-    d.filas.forEach((f, k) => {
-      const cx = L + k * cw + cw / 2, he = f.e / mx * gh, hs = f.s / mx * gh;
-      if (he > 0) { doc.setFillColor(...C_.g); doc.rect(cx - bw - 0.3, y + gh - he, bw, he, 'F'); }
-      if (hs > 0) { doc.setFillColor(...C_.r); doc.rect(cx + 0.3, y + gh - hs, bw, hs, 'F'); }
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); col('ink2'); doc.text(MESES_C[+f.m.slice(5) - 1], cx, y + gh + 3.5, { align: 'center' });
-    });
-    doc.setFillColor(...C_.g); doc.rect(L, y + gh + 6, 2.2, 2.2, 'F'); doc.setFillColor(...C_.r); doc.rect(L + 13, y + gh + 6, 2.2, 2.2, 'F');
-    doc.setFontSize(7); col('ink2'); doc.text('Entra', L + 3.2, y + gh + 7.9); doc.text('Sale', L + 16.2, y + gh + 7.9);
-    y += gh + 15;
+        else if (c.section === 'body' || (c.section === 'foot' && c.row.index === 0)) { if (c.column.index === 1) c.cell.styles.textColor = C_.g; if (c.column.index === 2) c.cell.styles.textColor = C_.r; } } });
+    y = doc.lastAutoTable.finalY + 6;
     // por concepto, a dos columnas
     const half = (W - 8) / 2;
     const tabla = (lista, tot, c, x, t) => {
