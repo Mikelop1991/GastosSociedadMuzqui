@@ -150,6 +150,7 @@ main { max-width: 1040px; margin: 0 auto; padding: 18px 16px 30px; }
 @media (prefers-reduced-motion: no-preference) { .mov.nuevo { animation: llega 1.4s ease-out; } @keyframes llega { from { background: var(--olive-soft); } } }
 
 .fform { display: grid; gap: 10px; }
+.selmes { border: 1px solid var(--rule); background: var(--paper); border-radius: 10px; padding: 10px 12px; min-height: 48px; width: 100%; font: inherit; color: inherit; }
 .fform .fila2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .fform input[inputmode=decimal] { font-family: var(--f-num); font-weight: 700; font-size: 1.2rem; text-align: right; }
 .fform label { font-weight: 700; font-size: .9rem; display: grid; gap: 4px; }
@@ -796,16 +797,60 @@ function vTemporada() {
     </div>
     <div class="view two">
       <section class="panel"><h3>Quién trae sobres</h3>${ql.length ? `<div class="barras q">${ql.map(([k, o]) => `<div class="barra"><span>${esc(k)}</span><b>${o.n} <span class="muted small">· ${eur(o.v)} €</span></b><div class="t"><i style="width:${(o.n / qm * 100).toFixed(1)}%"></i></div></div>`).join('')}</div>` : '<p class="muted" style="margin:0">Sin sobres.</p>'}</section>
-      <section class="panel"><h3>La Excel de la soci</h3>
-        <p class="small muted" style="margin:0">Sale la misma Excel de siempre: Resumen, un mes por pestaña (gastos e ingresos con sus observaciones), la hoja de Fiestas de ${y} y los gráficos. Cada sobre va en una fila con su cena, bebida y leña.</p>
-        <button type="button" class="btn go wide" id="xlBtn">Descargar Gastos_Muzqui_${y}-${y + 1}.xlsx</button>
-        <p class="small muted" style="margin:0">Si Excel lo abre en «Vista protegida», pulsa «Habilitar edición» para que se calculen los totales.</p>
-      </section>
+      <section class="panel" id="xlPanel">${htmlPanelExcel(y)}</section>
     </div>
   </div>`;
   $$('[data-t]').forEach(b => b.onclick = () => { const a = +b.dataset.t; S.mes = a === temporadaDe(hoyISO()) ? mesHoy() : `${a + 1}-02`; render(); });
   $$('[data-m]').forEach(b => b.onclick = () => { S.mes = b.dataset.m > mesHoy() ? mesHoy() : b.dataset.m; irA('mes'); });
-  $('#xlBtn').onclick = () => exportarExcel(y);
+  enlazarPanelExcel(y);
+}
+/* ---- la Excel: año de la soci, año natural o los meses que se elijan (hasta 12) ---- */
+const nombreMesCorto = ym => MESES_L[+ym.slice(5) - 1][0].toUpperCase() + MESES_L[+ym.slice(5) - 1].slice(1);
+function periodoExcel(y) {
+  const t = S.xlTipo || 'soci';
+  if (t === 'natural') { const a = S.xlAnio || +mesHoy().slice(0, 4); const ms = Array.from({ length: 12 }, (_, i) => `${a}-${pad(i + 1)}`);
+    return { tipo: t, meses: ms, archivo: `Gastos_Muzqui_${a}.xlsx`, texto: `Cuentas del año ${a}  ·  de enero a diciembre`, fiestas: a }; }
+  if (t === 'meses') {
+    let d = S.xlDesde || mover(mesHoy(), -2), h = S.xlHasta || mesHoy();
+    if (h < d) [d, h] = [h, d];
+    const n = Math.min(difMeses(d, h) + 1, 12); const ms = Array.from({ length: n }, (_, i) => mover(d, i));
+    const fin = ms[ms.length - 1];
+    const f = ms.find(m => m.slice(5) === '05');
+    return { tipo: t, meses: ms, recortado: difMeses(d, h) + 1 > 12, archivo: `Gastos_Muzqui_${d}_a_${fin}.xlsx`,
+      texto: `Cuentas de ${MESES_L[+d.slice(5) - 1]} ${d.slice(0, 4)} a ${MESES_L[+fin.slice(5) - 1]} ${fin.slice(0, 4)}`, fiestas: f ? +f.slice(0, 4) : +d.slice(0, 4) };
+  }
+  return { tipo: 'soci', meses: mesesTemporada(y), archivo: `Gastos_Muzqui_${y}-${y + 1}.xlsx`, texto: null, fiestas: y };
+}
+function htmlPanelExcel(y) {
+  const t = S.xlTipo || 'soci', per = periodoExcel(y);
+  const conDatos = S.movs.filter(g => !esFiesta(g)).map(g => mesDe(g.fecha));
+  const primero = conDatos.length ? conDatos.reduce((a, b) => a < b ? a : b) : mesHoy();
+  const todos = []; for (let m = primero; m <= mesHoy(); m = mover(m, 1)) todos.push(m);
+  const anios = [...new Set(todos.map(m => +m.slice(0, 4)))];
+  const opc = sel => todos.slice().reverse().map(m => `<option value="${m}" ${m === sel ? 'selected' : ''}>${nombreMes(m)}</option>`).join('');
+  return `<h3>Descargar la Excel</h3>
+    <div class="seg" role="group" aria-label="Periodo de la Excel">
+      <button type="button" data-xt="soci" class="${t === 'soci' ? 'on' : ''}">Año de la soci</button>
+      <button type="button" data-xt="natural" class="${t === 'natural' ? 'on' : ''}">Año natural</button>
+      <button type="button" data-xt="meses" class="${t === 'meses' ? 'on' : ''}">Elegir meses</button></div>
+    ${t === 'soci' ? `<p class="small muted" style="margin:0">De marzo ${y} a febrero ${y + 1}, como siempre. Cambia de año con los botones de arriba.</p>` : ''}
+    ${t === 'natural' ? `<div class="seg" role="group" aria-label="Año">${anios.map(a => `<button type="button" data-xa="${a}" class="${a === (S.xlAnio || +mesHoy().slice(0, 4)) ? 'on' : ''}">${a}</button>`).join('')}</div>
+      <p class="small muted" style="margin:0">De enero a diciembre de ${S.xlAnio || +mesHoy().slice(0, 4)}.</p>` : ''}
+    ${t === 'meses' ? `<div class="fform"><div class="fila2">
+        <label>Desde<select id="xlDesde" class="selmes">${opc(S.xlDesde || mover(mesHoy(), -2))}</select></label>
+        <label>Hasta<select id="xlHasta" class="selmes">${opc(S.xlHasta || mesHoy())}</select></label></div></div>
+      <p class="small muted" style="margin:0">${per.meses.length} ${per.meses.length === 1 ? 'mes' : 'meses'}: de ${nombreMes(per.meses[0]).toLowerCase()} a ${nombreMes(per.meses[per.meses.length - 1]).toLowerCase()}.${per.recortado ? ' <b style="color:var(--ember)">Como mucho 12 meses: se corta en el duodécimo.</b>' : ''}</p>` : ''}
+    <button type="button" class="btn go wide" id="xlBtn">Descargar ${per.archivo}</button>
+    <p class="small muted" style="margin:0">Resumen con gráficos, un mes por pestaña y la hoja de Fiestas de ${per.fiestas}. Si Excel lo abre en «Vista protegida», pulsa «Habilitar edición» para que se calculen los totales.</p>`;
+}
+function enlazarPanelExcel(y) {
+  const repinta = () => { $('#xlPanel').innerHTML = htmlPanelExcel(y); enlazarPanelExcel(y); };
+  $$('[data-xt]').forEach(b => b.onclick = () => { S.xlTipo = b.dataset.xt; repinta(); });
+  $$('[data-xa]').forEach(b => b.onclick = () => { S.xlAnio = +b.dataset.xa; repinta(); });
+  const d = $('#xlDesde'), h = $('#xlHasta');
+  if (d) d.onchange = () => { S.xlDesde = d.value; repinta(); };
+  if (h) h.onchange = () => { S.xlHasta = h.value; repinta(); };
+  $('#xlBtn').onclick = () => exportarExcel(periodoExcel(y));
 }
 
 /* ---- Fiestas: cuenta aparte, línea a línea y a mano ---- */
@@ -1214,28 +1259,54 @@ function rutasHojas(wb, rels) {
   });
   return out;
 }
-async function exportarExcel(y) {
-  if (S.demo) { toast('En la versión de prueba no se descarga. En la app de verdad sale la Excel del año.'); return; }
+const MESES_PLANTILLA = ['Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre', 'Enero', 'Febrero'];
+/* cambia el nombre de las 12 hojas de mes de la plantilla (y sus referencias) por los del periodo; las que sobran se ocultan */
+function renombrarHojas(texto, nuevos) {
+  MESES_PLANTILLA.forEach((m, i) => { texto = texto.split(`'${m}'!`).join(`'§${i}§'!`).split(`name="${m}"`).join(`name="§${i}§"`).split(`<t>${m}</t>`).join(`<t>§${i}§</t>`).split(`<vt:lpstr>${m}</vt:lpstr>`).join(`<vt:lpstr>§${i}§</vt:lpstr>`); });
+  MESES_PLANTILLA.forEach((m, i) => { texto = texto.split(`§${i}§`).join(nuevos[i]); });
+  return texto;
+}
+async function exportarExcel(per) {
+  if (S.demo) { toast('En la versión de prueba no se descarga. En la app de verdad sale la Excel.'); return; }
   const b = $('#xlBtn'); const txt = b.textContent; b.disabled = true; b.textContent = 'Preparando la Excel…';
   try {
     await cargarScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
     const r = await fetch('plantilla.xlsx', { cache: 'no-cache' });
     if (!r.ok) throw new Error('plantilla');
     const zip = await JSZip.loadAsync(await r.arrayBuffer());
-    const ms = mesesTemporada(y);
+    const ms = per.meses, n = ms.length;
     // las hojas se buscan por su nombre (Marzo … Febrero, FIESTAS): da igual el orden si alguien toca la plantilla
     const rutas = rutasHojas(await zip.file('xl/workbook.xml').async('string'), await zip.file('xl/_rels/workbook.xml.rels').async('string'));
+    const varios = new Set(ms.map(m => m.slice(0, 4))).size > 1;
+    const nombres = MESES_PLANTILLA.map((m, i) => i < n ? (per.tipo === 'soci' ? m : nombreMesCorto(ms[i]) + (varios ? ' ' + ms[i].slice(2, 4) : '')) : `·${i + 1}`);
     for (let i = 0; i < 12; i++) {
       const p = rutas[HOJAS_MES[i]]; if (!p || !zip.file(p)) throw new Error('plantilla');
-      zip.file(p, rellenarMes(await zip.file(p).async('string'), delMes(ms[i])));
+      let x = rellenarMes(await zip.file(p).async('string'), i < n ? delMes(ms[i]) : []);
+      if (per.tipo !== 'soci' && i < n) x = x.replace(`<t>${HOJAS_MES[i]}</t>`, `<t>${nombreMesCorto(ms[i]).toUpperCase()}</t>`).replace(/\{ANIO\}/g, ms[i].slice(0, 4));
+      zip.file(p, x);
     }
     const fp = rutas.FIESTAS; if (!fp || !zip.file(fp)) throw new Error('plantilla');
-    zip.file(fp, hojaFiestasXml(await zip.file(fp).async('string'), lineasFiestas(y)));
-    for (const p of new Set(Object.values(rutas))) if (zip.file(p)) zip.file(p, ponerAnios(await zip.file(p).async('string'), y));   // el año en los títulos
+    zip.file(fp, hojaFiestasXml(await zip.file(fp).async('string'), lineasFiestas(per.fiestas)));
+    if (per.tipo !== 'soci') {
+      // nombres de las hojas, referencias del resumen, título y meses que sobran (ocultos)
+      let wb = renombrarHojas(await zip.file('xl/workbook.xml').async('string'), nombres);
+      for (let i = n; i < 12; i++) wb = wb.replace(/<sheet\b[^>]*>/g, tag => !tag.includes(`name="${nombres[i]}"`) ? tag
+        : / state="[^"]*"/.test(tag) ? tag.replace(/ state="[^"]*"/, ' state="hidden"') : tag.replace(/<sheet\b/, '<sheet state="hidden"'));
+      zip.file('xl/workbook.xml', wb);
+      if (zip.file('docProps/app.xml')) zip.file('docProps/app.xml', renombrarHojas(await zip.file('docProps/app.xml').async('string'), nombres));
+      const rp = rutas.RESUMEN;
+      if (rp && zip.file(rp)) {
+        let x = renombrarHojas(await zip.file(rp).async('string'), nombres);
+        x = x.replace(/Cuentas del a(?:ñ|&#241;|&#xF1;)o \{ANIO\}[^<]*/i, xmlEsc(per.texto));
+        for (let i = n; i < 12; i++) x = x.replace(new RegExp(`<row r="${10 + i}"`), `<row r="${10 + i}" hidden="1"`);
+        zip.file(rp, x);
+      }
+    }
+    for (const p of new Set(Object.values(rutas))) if (zip.file(p)) zip.file(p, ponerAnios(await zip.file(p).async('string'), per.fiestas));   // el año en los títulos
     const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Gastos_Muzqui_${y}-${y + 1}.xlsx`;
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = per.archivo;
     document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
-    toast(`Excel de ${y}-${y + 1} descargada`);
+    toast(`Excel descargada: ${per.archivo}`);
   } catch (e) {
     toast(String(e.message) === 'plantilla' ? 'No encuentro la plantilla de la Excel.' : 'Hace falta conexión para preparar la Excel.');
   }
