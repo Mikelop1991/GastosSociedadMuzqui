@@ -45,9 +45,21 @@ function doGet(e) {
     // sin clave: dice qué script es, para comprobar que la URL apunta al sitio bueno
     if (!e.parameter.k) return { ok: false, error: 'FALTA_CLAVE', app: 'Sociedad Muzki', hoja: SpreadsheetApp.getActive().getName(), claveConfigurada: !!claveActual_() };
     comprobarClave_(e.parameter.k);
-    return { ok: true, movimientos: leerGastos_(), hora: new Date().toISOString() };
+    const v = version_();
+    if (e.parameter.v && e.parameter.v === v) return { ok: true, sinCambios: true, version: v, hora: new Date().toISOString() };
+    return Object.assign({ ok: true, version: v, hora: new Date().toISOString() }, datos_());
   });
 }
+
+/** Lo que la app necesita para pintar todo. */
+function datos_() { return { movimientos: leerGastos_() }; }
+
+/* ---- versión de los datos: cambia con cada escritura, desde la app o a mano en la hoja.
+   La app la manda al pedir datos y, si no ha cambiado nada, no hace falta leer la hoja entera. ---- */
+function version_() { return PropertiesService.getScriptProperties().getProperty('VERSION') || '0'; }
+function subirVersion_() { PropertiesService.getScriptProperties().setProperty('VERSION', String(Date.now())); }
+/** Se ejecuta solo al editar la hoja a mano: así la app se entera del cambio. */
+function onEdit() { try { subirVersion_(); } catch (err) { /* sin permiso en este contexto: la app refresca igual cada 10 min */ } }
 
 function doPost(e) {
   return responder_(() => {
@@ -62,7 +74,9 @@ function doPost(e) {
         catch (err) { return { ok: false, accion: op && op.accion, error: String(err.message || err) }; }
       });
       SpreadsheetApp.flush();
-      return { ok: true, hechos: hechos };
+      if (hechos.some(h => h.ok)) subirVersion_();
+      // con datos: true devuelve ya los datos al día, y la app se ahorra pedirlos otra vez
+      return Object.assign({ ok: true, hechos: hechos }, p.datos ? Object.assign({ version: version_(), hora: new Date().toISOString() }, datos_()) : {});
     } finally {
       lock.releaseLock();
     }
