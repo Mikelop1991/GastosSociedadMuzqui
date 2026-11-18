@@ -265,6 +265,46 @@ nav.tabs .plus svg { width: 24px; height: 24px; color: #fff !important; }
 .demo { background: var(--ember-deep); color: #fff; text-align: center; font-size: .84rem; padding: 6px 12px; font-weight: 700; }
 .sello { display: inline-block; border: 2px solid var(--olive); color: var(--olive); border-radius: 6px; padding: 1px 8px; font-weight: 800; font-size: .8rem; transform: rotate(-4deg); }
 @media (prefers-reduced-motion: no-preference) { .sheet { animation: up .22s cubic-bezier(.2,.8,.2,1); } @keyframes up { from { opacity: .4; transform: translateY(40px); } } }
+
+/* ===== toques modernos: confirmación al guardar, transiciones y gestos ===== */
+html, body { overscroll-behavior-y: contain; }   /* el «tirar para actualizar» es el de la app, no el del navegador */
+.okfx { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; z-index: 90; }
+.okfx svg { width: 96px; height: 96px; fill: none; stroke-linecap: round; stroke-linejoin: round; animation: okfx-in 1.1s ease forwards; filter: drop-shadow(0 10px 26px rgb(0 0 0 / .22)); }
+.okfx circle { fill: var(--act); stroke: none; }
+.okfx path { stroke: var(--act-ink); stroke-width: 4.5; stroke-dasharray: 40; stroke-dashoffset: 40; animation: okfx-trazo .34s .12s ease-out forwards; }
+@keyframes okfx-in { 0% { opacity: 0; transform: scale(.55); } 18% { opacity: 1; transform: scale(1.06); } 28% { transform: scale(1); } 72% { opacity: 1; } 100% { opacity: 0; transform: scale(.94); } }
+@keyframes okfx-trazo { to { stroke-dashoffset: 0; } }
+.ptr { position: fixed; top: calc(env(safe-area-inset-top, 0px) - 40px); left: 50%; width: 40px; height: 40px; border-radius: 50%; background: var(--sheet); box-shadow: 0 4px 16px rgb(0 0 0 / .22); display: grid; place-items: center; z-index: 70; opacity: 0; transform: translate(-50%, 0); pointer-events: none; }
+.ptr svg { width: 22px; height: 22px; fill: none; stroke: var(--act); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; opacity: .5; transition: opacity .15s; }
+.ptr.listo svg, .ptr.girando svg { opacity: 1; }
+.ptr.girando { transform: translate(-50%, 72px) !important; opacity: 1 !important; transition: transform .2s; }
+.ptr.girando svg { animation: ptr-gira .8s linear infinite; }
+@keyframes ptr-gira { to { rotate: 360deg; } }
+#app { view-transition-name: contenido; }
+/* durante la transición, la barra de abajo y los avisos siguen por encima del contenido */
+nav.tabs { view-transition-name: pestanas; } .toast { view-transition-name: aviso; } .okfx { view-transition-name: okfx; }
+::view-transition-group(pestanas), ::view-transition-group(aviso), ::view-transition-group(okfx) { animation: none; }
+::view-transition-old(pestanas), ::view-transition-old(aviso), ::view-transition-old(okfx) { display: none; }
+::view-transition-new(pestanas), ::view-transition-new(aviso), ::view-transition-new(okfx) { animation: none; }
+::view-transition-group(root) { animation-duration: .2s; }
+::view-transition-old(contenido) { animation: vt-sale .14s ease-in both; }
+::view-transition-new(contenido) { animation: vt-entra .26s cubic-bezier(.2, .8, .2, 1) both; }
+html[data-vt="adelante"]::view-transition-old(contenido) { animation-name: vt-sale-izq; }
+html[data-vt="adelante"]::view-transition-new(contenido) { animation-name: vt-entra-der; }
+html[data-vt="atras"]::view-transition-old(contenido) { animation-name: vt-sale-der; }
+html[data-vt="atras"]::view-transition-new(contenido) { animation-name: vt-entra-izq; }
+@keyframes vt-sale { to { opacity: 0; } }
+@keyframes vt-entra { from { opacity: 0; transform: translateY(10px); } }
+@keyframes vt-sale-izq { to { opacity: 0; transform: translateX(-32px); } }
+@keyframes vt-entra-der { from { opacity: 0; transform: translateX(32px); } }
+@keyframes vt-sale-der { to { opacity: 0; transform: translateX(32px); } }
+@keyframes vt-entra-izq { from { opacity: 0; transform: translateX(-32px); } }
+.toast:not([hidden]) { animation: toast-in .3s cubic-bezier(.2, .8, .2, 1); }
+@keyframes toast-in { from { opacity: 0; translate: -50% 14px; } }
+@media (prefers-reduced-motion: reduce) {
+  .okfx svg, .okfx path, .toast:not([hidden]) { animation: none; stroke-dashoffset: 0; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+}
 </style>
 </head>
 <body>
@@ -450,7 +490,7 @@ function leerConfigDeEnlace() {
 async function api(method, body) {
   if (!/^https:\/\/script\.google(usercontent)?\.com\/.+\/exec$/.test(S.cfg.url)) throw new Error('DIRECCION');
   if (!S.cfg.k) throw new Error('CLAVE');
-  const u = S.cfg.url + (method === 'GET' ? '?k=' + encodeURIComponent(S.cfg.k) : '');
+  const u = S.cfg.url + (method === 'GET' ? '?k=' + encodeURIComponent(S.cfg.k) + (body && body.v ? '&v=' + encodeURIComponent(body.v) : '') : '');
   const r = await fetch(u, method === 'GET' ? { cache: 'no-store' } : { method: 'POST', body: JSON.stringify(Object.assign({ k: S.cfg.k }, body)) });
   const txt = await r.text();
   let j; try { j = JSON.parse(txt); } catch (e) { throw new Error('NOJSON'); }
@@ -461,12 +501,14 @@ async function api(method, body) {
 const esPasajero = e => /CLAVE|DIRECCION|NOJSON|OCUPADO|fetch|network|Load failed|timeout|tiempo de espera|lock|Servic/i.test(String(e && e.message || e));
 let sincronizando = false, repetir = false;
 async function enviarPendientes() {
+  let conDatos = null;   // la última respuesta, si trae los datos ya al día (script nuevo)
   while (S.pend.length) {
     const lote = S.pend.slice();
     let hechos;
-    try { hechos = (await api('POST', { ops: lote })).hechos || []; }
+    try { const r = await api('POST', { ops: lote, datos: true }); hechos = r.hechos || []; conDatos = r.version ? r : null; }
     catch (e) {
       if (esPasajero(e)) throw e;
+      conDatos = null;
       // un script antiguo rechaza el lote entero: se manda de uno en uno para saber cuál falla
       hechos = [];
       for (const op of lote) {
@@ -479,6 +521,7 @@ async function enviarPendientes() {
     const malos = hechos.filter(h => h && h.ok === false);
     if (malos.length) avisarRechazo(malos);
   }
+  return conDatos;
 }
 function avisarRechazo(malos) {
   const hora = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -491,15 +534,22 @@ async function sincronizar(mostrar) {
   if (sincronizando) { repetir = true; return; }
   sincronizando = true; repetir = false; S.rechazo = false; pintarEstado('sync');
   try {
-    await enviarPendientes();
-    const j = await api('GET');
+    const r = await enviarPendientes();
+    // al guardar, Google ya devuelve los datos al día. Si no, se piden diciendo qué versión tenemos:
+    // si nada ha cambiado, contesta «sin cambios» sin leer la hoja (cada 10 min se descarga todo igualmente)
+    const reciente = S.version && Date.now() - (S.descarga || 0) < 10 * 60e3;
+    let j = r || await api('GET', !mostrar && reciente ? { v: S.version } : null);
+    const igual = !!j.sinCambios;
+    if (igual) j = Object.assign(store.get('cache', {}), { version: j.version });
+    else { j.t = Date.now(); }
+    S.version = j.version; S.descarga = j.t;
     S.movs = j.movimientos.map(deFila);
     S.pend.forEach(aplicarLocal);   // lo apuntado mientras se descargaban los datos
-    store.set('cache', { movimientos: j.movimientos, hora: j.hora });
+    store.set('cache', Object.assign({ movimientos: j.movimientos, hora: j.hora }, { version: j.version, t: j.t }));
     S.ultimaSync = new Date(); S.online = true;
     if (!S.rechazo) { S.error = null; store.set('error', null); }   // el aviso de un rechazo se queda en Ajustes
     if (mostrar) toast('Datos al día');
-    render();
+    if (igual && !mostrar) pintarEstado(); else render();   // sin cambios no se repinta: no molesta si está escribiendo
   } catch (e) {
     S.online = false; S.error = explicarError(e); store.set('error', S.error);
     if (S.tab === 'ajustes') vAjustes();
@@ -614,7 +664,7 @@ function render() {
   ({ apuntar: vApuntar, mes: vMes, anual: vTemporada, fiestas: vFiestas, ajustes: vAjustes })[S.tab]();
   pintarEstado();
 }
-function irA(tab) { S.tab = tab; cerrarHoja(); render(); window.scrollTo(0, 0); }
+function irA(tab) { S.tab = tab; cerrarHoja(); transicion(() => { render(); window.scrollTo(0, 0); }); }
 
 /* ---- cuaderno del mes ---- */
 function htmlCuaderno(ym, max) {
@@ -918,7 +968,7 @@ function enlazarFormFiestas(root, l, alAcabar) {
     guardarFiesta(l, { concepto, gasto: g, ingreso: i, ayto: fa.checked, fecha });
     S.fAnio = +fecha.slice(0, 4);
     const escrito = capital(root.querySelector('#fc').value);
-    toast(`${l ? 'Corregido' : 'Añadido'}: ${concepto}${escrito !== concepto ? ` (escrito «${escrito}»)` : ''}`);
+    confirmar(`${l ? 'Corregido' : 'Añadido'}: ${concepto}${escrito !== concepto ? ` (escrito «${escrito}»)` : ''}`);
     alAcabar();
   };
   const b = root.querySelector('#fBorra');
@@ -1079,7 +1129,7 @@ function abrirSobre(o) {
     encolar(ops);
     S.nuevo = gid; S.mes = mesDe(st.fecha);
     cerrarHoja();
-    toast(`${ed ? 'Corregido' : 'Apuntado'}: sobre${quien ? ' de ' + quien : ''}, ${eur(PARTES.reduce((a, p) => a + vals[p], 0))} €${quien && capital(st.quien) !== quien ? ` (escrito «${capital(st.quien)}»)` : ''}`);
+    confirmar(`${ed ? 'Corregido' : 'Apuntado'}: sobre${quien ? ' de ' + quien : ''}, ${eur(PARTES.reduce((a, p) => a + vals[p], 0))} €${quien && capital(st.quien) !== quien ? ` (escrito «${capital(st.quien)}»)` : ''}`);
     render();
   };
   pinta();
@@ -1150,7 +1200,7 @@ function abrirHoja(o) {
     S.nuevo = mov.id; S.mes = mesDe(mov.fecha);
     cerrarHoja();
     const escrito = capital(sinFechas(sh.querySelector('#fNota')?.value || ''));
-    toast(`${ed ? 'Corregido' : 'Apuntado'}: ${C[mov.concepto].n}, ${eur(v)} €${mov.nota && escrito && mov.nota !== escrito ? ` · como «${mov.nota}»` : ''}`);
+    confirmar(`${ed ? 'Corregido' : 'Apuntado'}: ${C[mov.concepto].n}, ${eur(v)} €${mov.nota && escrito && mov.nota !== escrito ? ` · como «${mov.nota}»` : ''}`);
     render();
   };
   pinta();
@@ -1454,12 +1504,74 @@ function vAjustes() {
 
 /* ====================== arranque ====================== */
 $$('nav.tabs button').forEach(b => b.onclick = () => irA(b.dataset.tab));
-$('#mPrev').onclick = () => { if (S.tab === 'fiestas') S.fAnio--; else S.mes = mover(S.mes, -1); render(); };
-$('#mNext').onclick = () => { if (S.tab === 'fiestas') { if (S.fAnio < Math.max(...aniosFiestas()) + 1) S.fAnio++; } else if (S.mes < mesHoy()) S.mes = mover(S.mes, 1); render(); };
+$('#mPrev').onclick = () => { if (S.tab === 'fiestas') S.fAnio--; else S.mes = mover(S.mes, -1); transicion(render, 'atras'); };
+$('#mNext').onclick = () => { if (S.tab === 'fiestas') { if (S.fAnio < Math.max(...aniosFiestas()) + 1) S.fAnio++; } else if (S.mes < mesHoy()) S.mes = mover(S.mes, 1); transicion(render, 'adelante'); };
 $('#syncPill').onclick = () => S.demo ? toast('Versión de prueba: no se conecta a Google.') : (S.cfg && !S.error ? sincronizar(true) : irA('ajustes'));
 window.addEventListener('online', () => sincronizar());
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sincronizar(); });
 function aplicarLetra() { const l = store.get('letra', 'normal'); document.documentElement.classList.toggle('grande', l === 'grande'); document.documentElement.classList.toggle('xgrande', l === 'xgrande'); }
+/* ====================== toques modernos: confirmación, transiciones y gestos ====================== */
+const sinMovimiento = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+function vibrar(ms) { try { if (navigator.vibrate) navigator.vibrate(ms || 12); } catch (e) { /* no todos los aparatos vibran */ } }
+/* al guardar: un «✓» grande y breve en el centro, una vibración corta y el aviso de siempre */
+function confirmar(msg) {
+  toast(msg); vibrar(14);
+  if (sinMovimiento()) return;
+  const v = document.createElement('div'); v.className = 'okfx'; v.setAttribute('aria-hidden', 'true');
+  v.innerHTML = '<svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="25"/><path d="M15 27l7 7 15-16"/></svg>';
+  document.body.appendChild(v); setTimeout(() => v.remove(), 1150);
+}
+/* cambio de pantalla o de mes con un fundido suave (solo donde el navegador lo permite; si no, igual que antes) */
+function transicion(fn, dir) {
+  if (!document.startViewTransition || sinMovimiento() || document.hidden) return fn();
+  document.documentElement.dataset.vt = dir || 'fundido';
+  const t = document.startViewTransition(fn);
+  t.finished.finally(() => { delete document.documentElement.dataset.vt; });
+}
+/* gestos: tirar hacia abajo desde arriba del todo para actualizar, y deslizar de lado para cambiar de mes */
+(function gestos() {
+  const ind = document.createElement('div'); ind.className = 'ptr'; ind.setAttribute('aria-hidden', 'true');
+  ind.innerHTML = '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>';
+  document.body.appendChild(ind);
+  let x0 = null, y0 = 0, t0 = 0, arriba = false, d = 0, ocupado = false;
+  const desplazable = el => {   // filas de botones o gráficas que ya se mueven de lado: ahí no se cambia de mes
+    for (; el && el !== document.body; el = el.parentElement)
+      if (el.scrollWidth > el.clientWidth + 4 && /auto|scroll/.test(getComputedStyle(el).overflowX)) return true;
+    return false;
+  };
+  const soltar = () => { ind.classList.remove('listo', 'girando'); ind.style.transform = ''; ind.style.opacity = ''; d = 0; };
+  addEventListener('touchstart', e => {
+    if (e.touches.length !== 1 || ocupado || document.querySelector('.sheet')) { x0 = null; return; }
+    const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; t0 = Date.now(); arriba = scrollY <= 0; d = 0;
+  }, { passive: true });
+  addEventListener('touchmove', e => {
+    if (x0 === null || !arriba) return;
+    const t = e.touches[0], dy = t.clientY - y0, dx = t.clientX - x0;
+    if (dy <= 0 || Math.abs(dx) > dy || scrollY > 0) { if (d) soltar(); return; }
+    d = Math.min(dy * .5, 100);
+    ind.style.opacity = Math.min(d / 60, 1);
+    ind.style.transform = `translate(-50%, ${d}px) rotate(${d * 4}deg)`;
+    ind.classList.toggle('listo', d >= 60);
+  }, { passive: true });
+  addEventListener('touchend', e => {
+    if (x0 === null) return;
+    const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+    if (d >= 60) {
+      ocupado = true; ind.classList.add('girando'); vibrar(10);
+      const fin = S.demo ? (toast('Versión de prueba: no se conecta a Google.'), null) : sincronizar(true);
+      Promise.all([fin, new Promise(r => setTimeout(r, 700))]).finally(() => { ocupado = false; soltar(); });
+    } else {
+      if (d) soltar();
+      if (true && Math.abs(dx) > 70 && Math.abs(dx) > 2 * Math.abs(dy) && Date.now() - t0 < 700
+          && !desplazable(e.target) && !e.target.closest('input, textarea, select')) {
+        const b = $(dx < 0 ? '#mNext' : '#mPrev');
+        if (b && !b.disabled && b.offsetParent) b.click();
+      }
+    }
+    x0 = null;
+  }, { passive: true });
+})();
+
 function arrancar() {
   aplicarLetra();
   if (window.MUZKI_DEMO) {
@@ -1469,7 +1581,7 @@ function arrancar() {
     leerConfigDeEnlace();
     S.pend = store.get('pend', []);
     const c = store.get('cache', null);
-    if (c) S.movs = c.movimientos.map(deFila);
+    if (c) { S.movs = c.movimientos.map(deFila); S.version = c.version; S.descarga = c.t; }
     S.pend.forEach(aplicarLocal);
     if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
   }
